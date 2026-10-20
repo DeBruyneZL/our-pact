@@ -1,0 +1,12 @@
+---
+description: 你我约定项目约束（技术栈边界与注释）
+alwaysApply: true
+---
+
+# 项目约束
+
+- 后端：Spring Boot 3、JDK 17、MyBatis-Plus、Sa-Token、Lombok。数据库 MySQL 5.7。
+- 只保留 `backend/src/main/resources/application.yml`。库地址用环境变量 `MYSQL_HOST`、`MYSQL_PORT`。
+- 禁止引入 Redis、MapStruct，禁止多环境配置、CI、Git hooks。
+- 前端请求、类型、工具放 `frontend/shared`，web 与 h5 从这里导入。
+- 不新增说明文档。代码只加必要中文注释。

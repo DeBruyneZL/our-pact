@@ -1,0 +1,17 @@
+{
+  "name": "our-pact",
+  "private": true,
+  "version": "1.0.0",
+  "pnpm": {
+    "overrides": {
+      "vue-router": "4.5.1"
+    }
+  },
+  "scripts": {
+    "dev:web": "npm --prefix web run dev",
+    "dev:h5": "npm --prefix h5 run dev",
+    "build:web": "npm --prefix web run build",
+    "build:h5": "npm --prefix h5 run build",
+    "build": "npm --prefix web run build && npm --prefix h5 run build"
+  }
+}

@@ -1,0 +1,45 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: our-pact-backend
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    # 本地开发走默认值；容器部署时由环境变量覆盖主机和端口
+    url: jdbc:mysql://${MYSQL_HOST:localhost}:${MYSQL_PORT:3306}/our_pact_db?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    username: ${MYSQL_USERNAME:root}
+    password: ${MYSQL_PASSWORD:ourpact123}
+    hikari:
+      # 连接数收小，避免和 MySQL 一起把小内存机器打满
+      maximum-pool-size: 10
+      minimum-idle: 2
+
+mybatis-plus:
+  mapper-locations: classpath*:/mapper/**/*.xml
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    banner: false
+    db-config:
+      id-type: auto
+      logic-delete-field: deleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+
+# 令牌放在请求头 Authorization，前端登录后原样回传
+sa-token:
+  token-name: Authorization
+  timeout: 86400
+  active-timeout: -1
+  is-concurrent: true
+  is-share: false
+  token-style: uuid
+  is-log: true
+  is-read-header: true
+  is-read-cookie: false
+
+logging:
+  level:
+    com.kiven.lpp.ourpact: info

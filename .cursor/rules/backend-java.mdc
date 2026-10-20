@@ -1,0 +1,64 @@
+---
+description: Java 后端规范（分层、响应、分页、SQL、枚举）
+globs: backend/src/**/*.{java,xml}
+alwaysApply: false
+---
+
+# Java 后端
+
+包根 `com.kiven.lpp.ourpact`。数据库 MySQL。复杂 SQL 放 `backend/src/main/resources/mapper/`。
+
+## 分层
+
+```
+controller / service + service.impl / mapper / entity / dto / common
+```
+
+- 有表的服务：接口继承 `IService`，实现继承 `ServiceImpl`。无持久化的编排类只写一个 `@Service`。
+- 构造器注入。入参 `@Valid`。Controller 只做接入，业务放 Service。
+- 列表 Form 继承 `PageQuery`。方法用短名：`page` / `add` / `update` / `delete` / `detail`。
+- Java 用 import + 短类名。例外：JavaDoc `{@link}`、同名类消歧。
+
+## 响应与异常
+
+统一 `Result`，成功 `code = 0`。业务失败抛 `BusinessException`，不要在各处手写 `Result.fail`。
+
+```java
+return Result.success(data);
+throw new BusinessException("用户名或密码错误");
+```
+
+未登录走 Sa-Token，由 `GlobalExceptionHandler` 返回 `ErrorCode.UNAUTHORIZED`。有限取值用枚举并 `implements BaseEnum<T>`，比较 value 或枚举本身，禁止魔法值。
+
+## 分页
+
+用 `PageUtil`，禁止手动 new `PageResult`。
+
+```java
+Page<User> page = userService.page(PageUtil.toPage(query), wrapper);
+return Result.success(PageUtil.toResult(page));
+```
+
+## SQL
+
+| 场景 | 做法 |
+|------|------|
+| 分页、JOIN、子查询、动态多条件 | Mapper XML |
+| 按主键、单个 `eq` / `in`、无 JOIN 的 count | 短 Wrapper |
+
+```xml
+<select id="queryByPage" resultType="com.kiven.lpp.ourpact.dto.UserProfileResponse">
+    SELECT t.id, t.username, t.nickname, t.create_time
+    FROM sys_user t
+    <where>
+        <if test="query.username != null and query.username != ''">
+            AND t.username LIKE CONCAT('%', #{query.username}, '%')
+        </if>
+    </where>
+    ORDER BY t.create_time DESC
+</select>
+```
+
+- 条件参数名 `query`。只用 `#{}`，禁止用 `${}` 拼用户输入。列出字段，不用 `SELECT *`。SQL 内不写注释。
+- 批量用 XML：`batchInsert` / `batchUpdate` / `batchDeleteByIds`，按 500 条分片。写操作加 `@Transactional(rollbackFor = Throwable.class)`。
+- 禁止在循环里逐条 `getById` / `insert` / `updateById` / `deleteById`。先收集，再 `IN` 查询，内存里匹配。

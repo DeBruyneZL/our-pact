@@ -1,0 +1,4 @@
+packages:
+  - "web"
+  - "h5"
+  - "shared"

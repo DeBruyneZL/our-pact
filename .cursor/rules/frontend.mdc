@@ -1,0 +1,36 @@
+---
+description: 前端规范（shared 请求、页面拆分、枚举、状态）
+globs: frontend/{web,h5,shared}/src/**/*.{vue,ts}
+alwaysApply: false
+---
+
+# 前端
+
+Vue 3 + TypeScript + Vite + Pinia + Vue Router。Web 用 Element Plus，H5 用 Vant，不要混用。接口和类型放 `frontend/shared`。
+
+## 目录
+
+- `shared/src/api/`：接口函数。`shared/src/types/`：请求和响应类型。`shared/src/utils/`：纯函数与令牌。
+- `web/src`、`h5/src`：`views/`、`components/`、`router/`、`stores/`。路由就在各自的 `router/`，可以修改。
+
+```typescript
+export function pageUsers(query: UserQuery): Promise<PageResult<UserProfile>> {
+  return http.post<PageResult<UserProfile>>('/user/page', query)
+}
+```
+
+- 类型写全，少用 `any`。组件内 try-catch 后提示错误。禁止在循环里发请求。
+- 令牌只用 `getToken` / `setToken` / `clearToken`。
+
+## 页面
+
+- `<script setup lang="ts">`。`defineProps` / `defineEmits`。父子用 props、emit 或 `v-model`。
+- 页面文件只做编排。弹窗、表单块放到 `components/`，类型和纯函数单独放。
+- 单文件超过约 400 行就拆，硬上限 1500 行。
+- 文件名 kebab-case，组件名 PascalCase。函数用短动词，目录已经表达的模块名不要再重复。
+- `<style scoped>`。尺寸用 px。
+
+## 状态与枚举
+
+- Pinia 用 setup 写法，解构用 `storeToRefs`。store 不操作 DOM。
+- 禁止 `status === 1` 这类魔法值。常量与后端 `BaseEnum.value` 对齐，放模块的 `constants` 或 `types`。
