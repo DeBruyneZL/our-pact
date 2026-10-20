@@ -86,17 +86,9 @@ bash deploy-mysql.sh
 
 ## 用 docker-compose 部署应用
 
-先启动 MySQL，再打包后端和前端。`docker-compose.yml` 里没有 MySQL。
+MySQL 已经启动后，在项目根目录执行一条命令即可。镜像内会编译后端和前端，不用先在服务器上执行 `mvn package` 或 `pnpm build`。`docker-compose.yml` 里没有 MySQL。
 
 ```bash
-cd backend
-mvn package -DskipTests
-
-cd ../frontend
-pnpm install
-pnpm build
-
-cd ..
 docker compose up -d --build
 ```
 

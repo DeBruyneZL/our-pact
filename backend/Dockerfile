@@ -1,6 +1,13 @@
+# 在镜像里编译，服务器上不必先执行 mvn package
+FROM maven:3.9.9-eclipse-temurin-17 AS build
+WORKDIR /src
+COPY pom.xml .
+COPY src ./src
+RUN mvn -B package -DskipTests
+
 FROM crpi-9vrl30bdbouh839d.cn-chengdu.personal.cr.aliyuncs.com/kiven_lpp/eclipse-temurin:17-jdk
 VOLUME /tmp
-ADD ./target/our-pact-backend-1.0.0.jar app.jar
+COPY --from=build /src/target/our-pact-backend-1.0.0.jar app.jar
 RUN ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
 RUN echo 'Asia/Shanghai' > /etc/timezone
 CMD hostname | xargs -I {} echo 127.0.0.1 {} >> /etc/hosts \
