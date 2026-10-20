@@ -26,4 +26,4 @@ docker run -d \
   --collation-server=utf8mb4_unicode_ci
 
 echo "MySQL 5.7 已启动：端口 3306，数据库 our_pact_db，root 密码 ourpact123"
-echo "初始化 SQL 只在数据卷第一次创建时执行。"
+echo "表结构由后端启动时的 Flyway 执行。"

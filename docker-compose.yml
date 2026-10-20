@@ -5,15 +5,13 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     container_name: our-pact-backend
-    ports:
-      - "8080:8080"
+    # 与宿主机共用网络，才能用 127.0.0.1 连到本机 MySQL 的 3306
+    network_mode: host
     environment:
-      MYSQL_HOST: host.docker.internal
+      MYSQL_HOST: 127.0.0.1
       MYSQL_PORT: "3306"
       MYSQL_USERNAME: root
       MYSQL_PASSWORD: ourpact123
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     restart: unless-stopped
 
   nginx:
@@ -21,6 +19,8 @@ services:
     container_name: our-pact-nginx
     ports:
       - "80:80"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - ./docker/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./frontend/web/dist:/usr/share/nginx/html/web:ro

@@ -33,13 +33,7 @@ our-pact/
 
 ### 1. 准备数据库
 
-已安装本机 MySQL 时，在项目根目录执行初始化脚本：
-
-```bash
-mysql -uroot -p < docker/mysql-init/01-init.sql
-```
-
-也可以直接用下面的独立容器部署 MySQL。默认库名 `our_pact_db`，账号 `root`，密码 `ourpact123`。后端只保留一份 `application.yml`，连接地址默认是 `localhost:3306`，可用环境变量 `MYSQL_HOST`、`MYSQL_PORT`、`MYSQL_USERNAME`、`MYSQL_PASSWORD` 覆盖。
+先用下面的独立容器部署 MySQL，或在本机 MySQL 中建好库 `our_pact_db`。账号 `root`，密码 `ourpact123`。服务和数据库在同一台机器时，`application.yml` 默认连接 `127.0.0.1:3306`。表结构不靠手工导入，后端启动时由 Flyway 执行 `backend/src/main/resources/db/migration/`。
 
 ### 2. 启动后端
 
@@ -108,12 +102,10 @@ docker compose up -d --build
 
 - 管理端：http://服务器IP/
 - H5：http://服务器IP/h5/
-- 后端：容器内 `backend:8080`，宿主机也可访问 `8080`
-- Nginx 把 `/api` 反代到 backend
+- 后端与 MySQL 在同一台机器，容器使用宿主机网络，数据库地址是 `127.0.0.1:3306`
+- Nginx 把 `/api` 反代到宿主机 `8080`
 
-后端容器通过 `MYSQL_HOST=host.docker.internal` 访问宿主机上的 MySQL。Linux 上已配置 `host-gateway`。如果这条地址不可用，把 `docker-compose.yml` 里的 `MYSQL_HOST` 改成宿主机内网 IP。
-
-MySQL 若跑在别的机器上，同样只改 `MYSQL_HOST` 和 `MYSQL_PORT`。
+数据库不在本机时，再通过环境变量 `MYSQL_HOST`、`MYSQL_PORT` 覆盖。
 
 ## 2G 内存服务器注意事项
 
