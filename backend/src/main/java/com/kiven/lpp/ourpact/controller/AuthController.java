@@ -5,6 +5,7 @@ import com.kiven.lpp.ourpact.common.BusinessException;
 import com.kiven.lpp.ourpact.common.Result;
 import com.kiven.lpp.ourpact.dto.LoginRequest;
 import com.kiven.lpp.ourpact.dto.LoginResponse;
+import com.kiven.lpp.ourpact.dto.ProfileUpdateRequest;
 import com.kiven.lpp.ourpact.dto.UserProfileResponse;
 import com.kiven.lpp.ourpact.entity.User;
 import com.kiven.lpp.ourpact.service.UserService;
@@ -13,12 +14,12 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-
-import java.util.Objects;
+import org.springframework.web.multipart.MultipartFile;
 
 /**
- * 登录示例接口。账号来自 sys_user，登录态由 Sa-Token 签发。
+ * 登录与个人中心接口。登录态由 Sa-Token 签发。
  *
  * @author zhangliang
  */
@@ -33,26 +34,27 @@ public class AuthController {
     }
 
     /**
-     * 用户名密码登录。示例直接比对明文，正式环境应改为密码哈希。
+     * 用户名或手机号加密码登录。密码仍按明文比对。
      */
     @PostMapping("/login")
     public Result<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
-        User user = userService.findByUsername(request.getUsername());
-        if (user == null || !Objects.equals(user.getPassword(), request.getPassword())) {
-            throw new BusinessException("用户名或密码错误");
-        }
+        User user = userService.authenticate(request.getAccount(), request.getPassword());
         StpUtil.login(user.getId());
+        UserProfileResponse profile = userService.toProfile(user);
 
         LoginResponse response = new LoginResponse();
         response.setToken(StpUtil.getTokenValue());
-        response.setUserId(user.getId());
-        response.setUsername(user.getUsername());
-        response.setNickname(displayName(user));
+        response.setUserId(profile.getId());
+        response.setUsername(profile.getUsername());
+        response.setNickname(profile.getNickname());
+        response.setPhone(profile.getPhone());
+        response.setAvatar(profile.getAvatar());
+        response.setSuperAdmin(profile.getSuperAdmin());
         return Result.success(response);
     }
 
     /**
-     * 用当前令牌换取用户资料，供前端验证登录是否生效。
+     * 当前登录用户资料。
      */
     @GetMapping("/me")
     public Result<UserProfileResponse> currentUser() {
@@ -60,12 +62,23 @@ public class AuthController {
         if (user == null) {
             throw new BusinessException("用户不存在");
         }
-        UserProfileResponse response = new UserProfileResponse();
-        response.setId(user.getId());
-        response.setUsername(user.getUsername());
-        response.setNickname(displayName(user));
-        response.setCreateTime(user.getCreateTime());
-        return Result.success(response);
+        return Result.success(userService.toProfile(user));
+    }
+
+    /**
+     * 修改昵称和手机号。
+     */
+    @PostMapping("/profile")
+    public Result<UserProfileResponse> updateProfile(@Valid @RequestBody ProfileUpdateRequest request) {
+        return Result.success(userService.updateProfile(StpUtil.getLoginIdAsLong(), request));
+    }
+
+    /**
+     * 上传并替换头像。
+     */
+    @PostMapping("/avatar")
+    public Result<UserProfileResponse> updateAvatar(@RequestParam("file") MultipartFile file) {
+        return Result.success(userService.updateAvatar(StpUtil.getLoginIdAsLong(), file));
     }
 
     /**
@@ -75,12 +88,5 @@ public class AuthController {
     public Result<Void> logout() {
         StpUtil.logout();
         return Result.success();
-    }
-
-    private String displayName(User user) {
-        if (user.getNickname() == null || user.getNickname().isBlank()) {
-            return user.getUsername();
-        }
-        return user.getNickname();
     }
 }

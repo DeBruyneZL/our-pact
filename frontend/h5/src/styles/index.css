@@ -9,12 +9,20 @@ body,
   min-height: 100%;
 }
 
-body {
-  font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
-  color: #1c1917;
-  background: #f3efe6;
+:root {
+  --brand: #1b6b4a;
+  --brand-dark: #0f3d2c;
+  --ink: #14201a;
+  --muted: #66736c;
+  --line: #e4ebe6;
+  --paper: #f2f5f1;
+  --surface: #ffffff;
+  --van-primary-color: #1b6b4a;
 }
 
-:root {
-  --van-primary-color: #1f6b4a;
+body {
+  font-family: "Source Han Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+  color: var(--ink);
+  background: var(--paper);
+  -webkit-font-smoothing: antialiased;
 }

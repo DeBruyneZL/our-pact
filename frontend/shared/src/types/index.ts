@@ -17,7 +17,7 @@ export interface PageResult<T> {
 }
 
 export interface LoginPayload {
-  username: string
+  account: string
   password: string
 }
 
@@ -26,11 +26,22 @@ export interface LoginResult {
   userId: number
   username: string
   nickname: string
+  phone: string | null
+  avatar: string | null
+  superAdmin: boolean
 }
 
 export interface UserProfile {
   id: number
   username: string
   nickname: string
+  phone: string | null
+  avatar: string | null
+  superAdmin: boolean
   createTime: string
+}
+
+export interface ProfileUpdatePayload {
+  nickname: string
+  phone: string
 }

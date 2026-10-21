@@ -18,5 +18,11 @@ public class UserProfileResponse {
 
     private String nickname;
 
+    private String phone;
+
+    private String avatar;
+
+    private Boolean superAdmin;
+
     private LocalDateTime createTime;
 }

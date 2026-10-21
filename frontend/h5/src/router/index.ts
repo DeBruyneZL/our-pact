@@ -1,25 +1,42 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import { getToken } from '@our-pact/shared'
-import LoginView from '@/views/LoginView.vue'
+import { consumeHandoffToken, getToken, goLogin } from '@our-pact/shared'
 import HomeView from '@/views/HomeView.vue'
+import ProfileView from '@/views/ProfileView.vue'
+import ProfileEditView from '@/views/ProfileEditView.vue'
+import { useAuthStore } from '@/stores/auth'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     { path: '/', redirect: '/home' },
-    { path: '/login', name: 'login', component: LoginView, meta: { public: true } },
+    { path: '/login', redirect: () => {
+      goLogin()
+      return '/home'
+    } },
     { path: '/home', name: 'home', component: HomeView },
+    { path: '/profile', name: 'profile', component: ProfileView },
+    { path: '/profile/edit', name: 'profile-edit', component: ProfileEditView },
   ],
 })
 
-router.beforeEach((to) => {
-  const loggedIn = Boolean(getToken())
-  if (!to.meta.public && !loggedIn) {
-    return { name: 'login' }
+router.beforeEach(async (to) => {
+  consumeHandoffToken()
+  const auth = useAuthStore()
+  auth.syncToken()
+
+  if (!getToken()) {
+    goLogin()
+    return false
   }
-  if (to.name === 'login' && loggedIn) {
-    return { name: 'home' }
+
+  try {
+    await auth.ensureProfile()
+  } catch {
+    await auth.logout()
+    goLogin()
+    return false
   }
+
   return true
 })
 

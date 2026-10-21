@@ -60,4 +60,7 @@ export const http = {
   post<T>(url: string, data?: unknown): Promise<T> {
     return unwrap<T>(request.post<ApiResult<T>>(url, data))
   },
+  postForm<T>(url: string, data: FormData): Promise<T> {
+    return unwrap<T>(request.post<ApiResult<T>>(url, data))
+  },
 }

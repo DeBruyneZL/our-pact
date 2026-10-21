@@ -3,9 +3,9 @@ import {
   clearToken,
   fetchCurrentUser,
   getToken,
-  login as loginApi,
   logout as logoutApi,
-  setToken,
+  updateProfile,
+  uploadAvatar,
   type UserProfile,
 } from '@our-pact/shared'
 
@@ -14,18 +14,39 @@ export const useAuthStore = defineStore('auth', {
     token: getToken(),
     profile: null as UserProfile | null,
   }),
+  getters: {
+    displayName(state): string {
+      return state.profile?.nickname || state.profile?.username || '用户'
+    },
+    isSuperAdmin(state): boolean {
+      return Boolean(state.profile?.superAdmin)
+    },
+  },
   actions: {
-    async login(username: string, password: string) {
-      const result = await loginApi({ username, password })
-      this.token = result.token
-      setToken(result.token)
+    syncToken() {
+      this.token = getToken()
     },
     async loadProfile() {
       this.profile = await fetchCurrentUser()
     },
+    async ensureProfile() {
+      this.syncToken()
+      if (this.profile || !this.token) {
+        return
+      }
+      await this.loadProfile()
+    },
+    async saveProfile(nickname: string, phone: string) {
+      this.profile = await updateProfile({ nickname, phone })
+    },
+    async changeAvatar(file: File) {
+      this.profile = await uploadAvatar(file)
+    },
     async logout() {
       try {
-        await logoutApi()
+        if (this.token) {
+          await logoutApi()
+        }
       } finally {
         this.token = ''
         this.profile = null

@@ -16,7 +16,14 @@ public class User extends BaseEntity {
 
     private String username;
 
+    private String phone;
+
     private String password;
 
     private String nickname;
+
+    private String avatar;
+
+    /** 取值见 {@link com.kiven.lpp.ourpact.common.YesNo} */
+    private Integer superAdmin;
 }

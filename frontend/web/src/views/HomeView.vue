@@ -1,102 +1,162 @@
 <template>
-  <div class="layout">
-    <header class="topbar">
-      <strong>饭否</strong>
-      <span>管理端</span>
-      <el-button class="logout" @click="onLogout">退出登录</el-button>
-    </header>
-    <main class="content">
-      <el-card shadow="never">
-        <template #header>
-          <div class="card-head">
-            <span>当前登录用户</span>
-            <el-button type="primary" link :loading="loading" @click="loadProfile">重新获取</el-button>
-          </div>
-        </template>
-        <p class="api">该页面调用 GET /api/auth/me</p>
-        <el-alert v-if="errorMessage" :title="errorMessage" type="error" show-icon :closable="false" />
-        <el-descriptions v-else-if="auth.profile" :column="1" border>
-          <el-descriptions-item label="用户编号">{{ auth.profile.id }}</el-descriptions-item>
-          <el-descriptions-item label="用户名">{{ auth.profile.username }}</el-descriptions-item>
-          <el-descriptions-item label="昵称">{{ auth.profile.nickname }}</el-descriptions-item>
-          <el-descriptions-item label="注册时间">{{ formatDateTime(auth.profile.createTime) }}</el-descriptions-item>
-        </el-descriptions>
-      </el-card>
-    </main>
+  <div class="home">
+    <section class="welcome">
+      <div>
+        <p class="eyebrow">超级管理端</p>
+        <h2>{{ auth.displayName }}，你好</h2>
+        <p class="desc">工作台只展示账号摘要。资料修改请进入个人中心。</p>
+      </div>
+      <el-button type="primary" size="large" @click="router.push({ name: 'profile' })">进入个人中心</el-button>
+    </section>
+
+    <div class="cards">
+      <article class="card" v-for="item in cards" :key="item.label">
+        <span>{{ item.label }}</span>
+        <strong>{{ item.value }}</strong>
+      </article>
+    </div>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h3>使用说明</h3>
+        <span>只读摘要</span>
+      </div>
+      <ul>
+        <li>管理端仅超级管理员可进入，普通用户请使用用户端。</li>
+        <li>昵称、手机号、头像在个人中心编辑；用户名与权限不可改。</li>
+        <li>手机号唯一，修改后可用于登录。</li>
+      </ul>
+    </section>
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { formatDateTime, getToken } from '@our-pact/shared'
+import { formatDateTime, maskPhone } from '@our-pact/shared'
 import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
 const auth = useAuthStore()
-const loading = ref(false)
-const errorMessage = ref('')
 
-async function loadProfile() {
-  loading.value = true
-  errorMessage.value = ''
-  try {
-    await auth.loadProfile()
-  } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : '获取用户失败'
-    if (!getToken()) {
-      auth.token = ''
-      await router.replace({ name: 'login' })
-    }
-  } finally {
-    loading.value = false
-  }
-}
+const cards = computed(() => [
+  { label: '登录账号', value: auth.profile?.username || '-' },
+  { label: '绑定手机', value: maskPhone(auth.profile?.phone) },
+  { label: '账号类型', value: '超级管理员' },
+  { label: '注册时间', value: formatDateTime(auth.profile?.createTime) },
+])
 
-async function onLogout() {
-  await auth.logout()
-  await router.replace({ name: 'login' })
-}
-
-onMounted(loadProfile)
+onMounted(() => {
+  auth.ensureProfile().catch(() => undefined)
+})
 </script>
 
 <style scoped>
-.layout {
-  min-height: 100vh;
+.home {
+  display: grid;
+  gap: 18px;
 }
 
-.topbar {
+.welcome {
   display: flex;
-  align-items: center;
-  gap: 12px;
-  height: 56px;
-  padding: 0 24px;
-  background: #1c1917;
-  color: #f5f5f4;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 30px;
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at 88% 18%, rgba(90, 180, 130, 0.22), transparent 34%),
+    linear-gradient(135deg, #102319, #1a3a2b 58%, #143224);
+  color: #f4faf6;
+  box-shadow: 0 16px 36px rgba(16, 35, 25, 0.18);
 }
 
-.topbar span {
-  color: #d6d3d1;
+.eyebrow {
+  margin: 0;
+  color: #9fd0b4;
+  font-size: 13px;
+  letter-spacing: 0.08em;
 }
 
-.logout {
-  margin-left: auto;
+.welcome h2 {
+  margin: 10px 0 0;
+  font-size: 30px;
+  font-weight: 650;
 }
 
-.content {
-  width: min(720px, calc(100% - 32px));
-  margin: 28px auto;
+.desc {
+  max-width: 520px;
+  margin: 12px 0 0;
+  color: rgba(244, 250, 246, 0.78);
+  line-height: 1.65;
 }
 
-.card-head {
+.cards {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.card,
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+}
+
+.card {
+  padding: 18px 20px;
+  box-shadow: 0 8px 20px rgba(20, 40, 30, 0.03);
+}
+
+.card span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.card strong {
+  display: block;
+  margin-top: 12px;
+  font-size: 18px;
+  letter-spacing: 0.01em;
+}
+
+.panel {
+  padding: 22px 24px;
+}
+
+.panel-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  margin-bottom: 12px;
 }
 
-.api {
-  margin-top: 0;
-  color: #78716c;
+.panel h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.panel-head span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.panel ul {
+  margin: 0;
+  padding-left: 18px;
+  color: #44534c;
+  line-height: 1.85;
+}
+
+@media (max-width: 960px) {
+  .cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .welcome {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 }
 </style>

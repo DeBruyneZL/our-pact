@@ -62,14 +62,19 @@ Vite 已把 `/api` 代理到 `http://localhost:8080`。
 
 ### 示例账号
 
-用户名 `admin`，密码 `123456`。密码按明文保存在示例表里，只用于演示登录。
+超级管理员：用户名 `admin` 或手机号 `13800000000`，密码 `123456`。
+普通用户：用户名 `user` 或手机号 `13900000000`，密码 `123456`。
+密码按明文保存在示例表里，只用于演示登录。
 
-登录后管理端和 H5 都会请求 `GET /api/auth/me`，用 Sa-Token 校验当前用户。
+统一登录入口在 `/login`。普通用户登录后直接进入用户端 H5；超级管理员登录后先选择进入管理端或用户端。个人中心默认只读，点「编辑资料」后才能改昵称和手机号；头像单独更换。用户名和超级管理员标记不可改。手机号唯一，也能用来登录。
 
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
-| POST | `/api/auth/login` | 登录，返回令牌 |
+| POST | `/api/auth/login` | 用户名或手机号登录，返回令牌 |
 | GET | `/api/auth/me` | 当前用户，需要请求头 `Authorization` |
+| POST | `/api/auth/profile` | 修改昵称和手机号 |
+| POST | `/api/auth/avatar` | 上传头像，表单字段 `file` |
+| GET | `/api/files/avatars/{文件名}` | 读取头像，不需要登录 |
 | POST | `/api/auth/logout` | 注销 |
 
 ## 独立部署 MySQL
@@ -92,10 +97,12 @@ MySQL 已经启动后，在项目根目录执行一条命令即可。镜像内�
 docker compose up -d --build
 ```
 
-- 管理端：http://服务器IP/
-- H5：http://服务器IP/h5/
+- 统一登录：http://服务器IP/login
+- 管理端：http://服务器IP/home（超管在选端页进入）
+- 用户端 H5：http://服务器IP/h5/
 - 后端与 MySQL 在同一台机器，容器使用宿主机网络，数据库地址是 `127.0.0.1:3306`
 - Nginx 把 `/api` 反代到宿主机 `8080`
+- 头像文件在宿主机 `/data/our-pact/avatars`，挂进后端容器的同一路径。`network_mode: host` 不影响这个卷。重建容器不会删这个目录
 
 数据库不在本机时，再通过环境变量 `MYSQL_HOST`、`MYSQL_PORT` 覆盖。
 
