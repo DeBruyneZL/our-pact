@@ -5,7 +5,7 @@ alwaysApply: true
 
 # 项目约束
 
-- 后端：Spring Boot 3、JDK 17、MyBatis-Plus、Sa-Token、Lombok、Flyway 9。数据库 MySQL 5.7。
+- 后端：Spring Boot 3、JDK 17、MyBatis-Plus、Sa-Token、Lombok、Flyway 7.15。数据库 MySQL 5.7。
 - 表结构只放 `backend/src/main/resources/db/migration/`，命名 `V<版本>__描述.sql`。已执行过的脚本不要改。
 - 只保留 `backend/src/main/resources/application.yml`。库地址用环境变量 `MYSQL_HOST`、`MYSQL_PORT`。
 - 禁止引入 Redis、MapStruct，禁止多环境配置、CI、Git hooks。

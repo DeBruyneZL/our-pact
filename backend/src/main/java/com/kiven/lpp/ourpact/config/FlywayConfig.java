@@ -9,7 +9,7 @@ import org.springframework.context.annotation.Configuration;
 import javax.sql.DataSource;
 
 /**
- * 启动时执行数据库迁移。使用 Flyway 9，兼容已部署的 MySQL 5.7。
+ * 启动时执行数据库迁移。使用 Flyway 7.15，社区版可以连 MySQL 5.7。
  *
  * @author zhangliang
  */

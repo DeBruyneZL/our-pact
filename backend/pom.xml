@@ -21,8 +21,8 @@
         <java.version>17</java.version>
         <mybatis-plus.version>3.5.8</mybatis-plus.version>
         <sa-token.version>1.39.0</sa-token.version>
-        <!-- Flyway 10 不再支持 MySQL 5.7 -->
-        <flyway.version>9.22.3</flyway.version>
+        <!-- 社区版从 8.0 起要求 MySQL 8，5.7 只能用 7.15.0 -->
+        <flyway.version>7.15.0</flyway.version>
     </properties>
 
     <dependencies>
