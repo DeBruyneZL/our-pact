@@ -10,19 +10,26 @@ body,
 }
 
 :root {
-  --brand: #1b6b4a;
-  --brand-dark: #0f3d2c;
-  --ink: #14201a;
-  --muted: #66736c;
-  --line: #e4ebe6;
-  --paper: #f2f5f1;
-  --surface: #ffffff;
-  --van-primary-color: #1b6b4a;
+  --brand: #5b8f7a;
+  --brand-dark: #3d6f5c;
+  --ink: #2c2a26;
+  --muted: #8a8680;
+  --line: #e5e1d8;
+  --paper: #f7f5f0;
+  --surface: #fffcf7;
+  --van-primary-color: #5b8f7a;
 }
 
 body {
-  font-family: "Source Han Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
   color: var(--ink);
   background: var(--paper);
   -webkit-font-smoothing: antialiased;
+}
+
+/* 顶栏中间标题弱化，避免压过左侧产品名 */
+.van-nav-bar__title {
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  color: #8a8680 !important;
 }

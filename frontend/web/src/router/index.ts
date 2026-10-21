@@ -3,7 +3,9 @@ import { consumeHandoffToken, getToken, goH5 } from '@our-pact/shared'
 import AppLayout from '@/layouts/AppLayout.vue'
 import LoginView from '@/views/LoginView.vue'
 import PortalView from '@/views/PortalView.vue'
-import HomeView from '@/views/HomeView.vue'
+import DishesView from '@/views/dishes/DishesView.vue'
+import ActivitiesView from '@/views/activities/ActivitiesView.vue'
+import UsersView from '@/views/users/UsersView.vue'
 import ProfileView from '@/views/ProfileView.vue'
 import { useAuthStore } from '@/stores/auth'
 
@@ -17,9 +19,12 @@ const router = createRouter({
       component: AppLayout,
       meta: { admin: true },
       children: [
-        { path: '', redirect: { name: 'home' } },
-        { path: 'home', name: 'home', component: HomeView },
+        { path: '', redirect: { name: 'dishes' } },
+        { path: 'dishes', name: 'dishes', component: DishesView },
+        { path: 'activities', name: 'activities', component: ActivitiesView },
+        { path: 'users', name: 'users', component: UsersView },
         { path: 'profile', name: 'profile', component: ProfileView },
+        { path: 'home', redirect: { name: 'dishes' } },
       ],
     },
   ],

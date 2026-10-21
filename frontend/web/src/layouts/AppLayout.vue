@@ -2,29 +2,16 @@
   <div class="shell">
     <aside class="sidebar">
       <div class="brand">
-        <span class="mark">饭</span>
-        <div>
-          <strong>饭否</strong>
-          <p>超级管理端</p>
-        </div>
+        <BrandLogo size="md" />
+        <p class="sub">超级管理端</p>
       </div>
       <nav class="menu">
-        <RouterLink :class="{ active: route.name === 'home' }" :to="{ name: 'home' }">
-          <span class="dot" />
-          工作台
-        </RouterLink>
-        <RouterLink :class="{ active: route.name === 'profile' }" :to="{ name: 'profile' }">
-          <span class="dot" />
-          个人中心
-        </RouterLink>
-        <button class="switch" type="button" @click="enterH5">
-          <span class="dot" />
-          切换用户端
-        </button>
-        <RouterLink class="switch-link" :to="{ name: 'portal' }">
-          <span class="dot" />
-          返回选端
-        </RouterLink>
+        <RouterLink :class="{ active: route.name === 'dishes' }" :to="{ name: 'dishes' }">菜单维护</RouterLink>
+        <RouterLink :class="{ active: route.name === 'activities' }" :to="{ name: 'activities' }">活动记录</RouterLink>
+        <RouterLink :class="{ active: route.name === 'users' }" :to="{ name: 'users' }">用户列表</RouterLink>
+        <RouterLink :class="{ active: route.name === 'profile' }" :to="{ name: 'profile' }">个人中心</RouterLink>
+        <button class="switch" type="button" @click="enterH5">切换用户端</button>
+        <RouterLink class="switch-link" :to="{ name: 'portal' }">返回选端</RouterLink>
       </nav>
       <div class="account" v-if="auth.profile">
         <el-avatar :size="38" :src="auth.profile.avatar || undefined">{{ initial }}</el-avatar>
@@ -32,7 +19,7 @@
           <strong>{{ auth.displayName }}</strong>
           <span>超级管理员</span>
         </div>
-        <el-button text class="logout" @click="onLogout">退出</el-button>
+        <el-button link type="primary" @click="onLogout">退出</el-button>
       </div>
     </aside>
     <section class="main">
@@ -55,12 +42,21 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessageBox } from 'element-plus'
 import { goH5 } from '@our-pact/shared'
 import { useAuthStore } from '@/stores/auth'
+import BrandLogo from '@/components/BrandLogo.vue'
 
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
 
-const pageTitle = computed(() => (route.name === 'profile' ? '个人中心' : '工作台'))
+const pageTitle = computed(() => {
+  const map: Record<string, string> = {
+    dishes: '菜单维护',
+    activities: '活动记录',
+    users: '用户列表',
+    profile: '个人中心',
+  }
+  return map[String(route.name)] || '管理端'
+})
 const initial = computed(() => auth.displayName.slice(0, 1))
 
 onMounted(() => {
@@ -89,7 +85,7 @@ async function onLogout() {
 <style scoped>
 .shell {
   display: grid;
-  grid-template-columns: 248px 1fr;
+  grid-template-columns: 220px 1fr;
   min-height: 100vh;
   background: var(--paper);
 }
@@ -97,86 +93,56 @@ async function onLogout() {
 .sidebar {
   display: flex;
   flex-direction: column;
-  padding: 22px 14px;
-  background:
-    linear-gradient(180deg, #102319 0%, #0d1a14 100%);
-  color: #e8f2ec;
+  padding: 24px 12px;
+  background: #faf8f3;
+  border-right: 1px solid var(--line);
+  color: var(--ink);
 }
 
 .brand {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-  padding: 10px 10px 28px;
+  padding: 8px 12px 20px;
 }
 
-.mark {
-  display: grid;
-  place-items: center;
-  width: 42px;
-  height: 42px;
-  border-radius: 14px;
-  background: linear-gradient(145deg, #2a8f62, #145338);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
-  font-weight: 700;
-}
-
-.brand strong {
-  display: block;
-  font-size: 18px;
-}
-
-.brand p {
-  margin: 3px 0 0;
-  color: #9bb5a8;
+.sub {
+  margin: 8px 0 0;
+  color: var(--brand);
   font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
 }
 
 .menu {
   display: grid;
-  gap: 8px;
+  gap: 4px;
 }
 
 .menu a,
 .menu .switch {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+  display: block;
   width: 100%;
-  padding: 13px 14px;
+  padding: 12px 14px;
   border: 0;
-  border-radius: 12px;
-  color: #c5d7cd;
+  border-radius: 10px;
+  color: #5c5852;
   background: transparent;
   text-decoration: none;
   text-align: left;
   font: inherit;
   cursor: pointer;
-  transition: background 0.18s ease, color 0.18s ease;
-}
-
-.menu a .dot,
-.menu .switch .dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.25);
 }
 
 .menu a.active,
 .menu a:hover,
 .menu .switch:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: #fff;
-}
-
-.menu a.active .dot {
-  background: #7ed0a7;
-  box-shadow: 0 0 0 4px rgba(126, 208, 167, 0.16);
+  background: rgba(91, 143, 122, 0.12);
+  color: var(--brand-dark);
+  font-weight: 600;
 }
 
 .switch-link {
   margin-top: 4px;
+  color: var(--muted) !important;
+  font-size: 13px;
 }
 
 .account {
@@ -186,7 +152,7 @@ async function onLogout() {
   align-items: center;
   margin-top: auto;
   padding: 16px 8px 6px;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: 1px solid var(--line);
 }
 
 .account-text {
@@ -203,12 +169,8 @@ async function onLogout() {
 
 .account-text span {
   margin-top: 3px;
-  color: #9bb5a8;
+  color: var(--muted);
   font-size: 12px;
-}
-
-.logout {
-  color: #c5d7cd !important;
 }
 
 .main {
@@ -220,9 +182,8 @@ async function onLogout() {
   align-items: center;
   min-height: 72px;
   padding: 14px 28px;
-  background: rgba(255, 255, 255, 0.82);
+  background: rgba(255, 252, 247, 0.92);
   border-bottom: 1px solid var(--line);
-  backdrop-filter: blur(8px);
 }
 
 .crumb {
@@ -239,5 +200,16 @@ async function onLogout() {
 
 .body {
   padding: 24px 28px 40px;
+}
+
+@media (max-width: 860px) {
+  .shell {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    border-right: none;
+    border-bottom: 1px solid var(--line);
+  }
 }
 </style>

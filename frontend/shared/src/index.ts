@@ -1,5 +1,7 @@
 export { http, request } from './request'
 export { fetchCurrentUser, login, logout, updateProfile, uploadAvatar } from './api/auth'
+export { enterDemoSession, DEMO_TOKEN, isDemoToken } from './api/demoAuth'
+export { pactApi } from './api/pactMock'
 export {
   AVATAR_MAX_BYTES,
   PHONE_PATTERN,
@@ -18,3 +20,18 @@ export {
   unifiedLoginUrl,
 } from './utils'
 export type { ApiResult, LoginPayload, LoginResult, PageQuery, PageResult, ProfileUpdatePayload, UserProfile } from './types'
+export type {
+  Activity,
+  ActivityItem,
+  ActivityItemOption,
+  ActivityPhoto,
+  ActivityStatus,
+  ActivitySubmitItem,
+  AdminNotice,
+  Dish,
+  DishCategory,
+  DishDraft,
+  DishOptionGroup,
+  DishOptionValue,
+  GuestUser,
+} from './types/pact'

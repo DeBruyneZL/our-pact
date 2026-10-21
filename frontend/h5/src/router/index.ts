@@ -1,21 +1,35 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { consumeHandoffToken, getToken, goLogin } from '@our-pact/shared'
-import HomeView from '@/views/HomeView.vue'
-import ProfileView from '@/views/ProfileView.vue'
+import TabLayout from '@/layouts/TabLayout.vue'
+import MenuView from '@/views/menu/MenuView.vue'
+import ActivitiesView from '@/views/activities/ActivitiesView.vue'
+import MineView from '@/views/mine/MineView.vue'
 import ProfileEditView from '@/views/ProfileEditView.vue'
 import { useAuthStore } from '@/stores/auth'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
-    { path: '/', redirect: '/home' },
-    { path: '/login', redirect: () => {
-      goLogin()
-      return '/home'
-    } },
-    { path: '/home', name: 'home', component: HomeView },
-    { path: '/profile', name: 'profile', component: ProfileView },
+    {
+      path: '/login',
+      redirect: () => {
+        goLogin()
+        return '/menu'
+      },
+    },
+    {
+      path: '/',
+      component: TabLayout,
+      children: [
+        { path: '', redirect: '/menu' },
+        { path: 'menu', name: 'menu', component: MenuView },
+        { path: 'activities', name: 'activities', component: ActivitiesView },
+        { path: 'mine', name: 'mine', component: MineView },
+      ],
+    },
+    { path: '/profile', redirect: '/mine' },
     { path: '/profile/edit', name: 'profile-edit', component: ProfileEditView },
+    { path: '/home', redirect: '/menu' },
   ],
 })
 

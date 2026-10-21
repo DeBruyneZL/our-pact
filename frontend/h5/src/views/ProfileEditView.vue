@@ -67,7 +67,7 @@ async function onSave() {
   try {
     await auth.saveProfile(nickname.value.trim(), nextPhone)
     showSuccessToast('资料已更新')
-    await router.replace({ name: 'profile' })
+    await router.replace({ name: 'mine' })
   } catch (error) {
     showFailToast(error instanceof Error ? error.message : '保存失败')
   } finally {
