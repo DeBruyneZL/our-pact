@@ -1,4 +1,4 @@
-# 你我约定（our-pact）
+# 饭否（our-pact）
 
 前后端分离的全栈项目。Web 管理端、H5 和共享请求层放在同一个前端工作区，Spring Boot 后端独立构建。MySQL 单独部署，不进入 `docker-compose.yml`。
 

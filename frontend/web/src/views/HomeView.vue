@@ -1,7 +1,7 @@
 <template>
   <div class="layout">
     <header class="topbar">
-      <strong>你我约定</strong>
+      <strong>饭否</strong>
       <span>管理端</span>
       <el-button class="logout" @click="onLogout">退出登录</el-button>
     </header>

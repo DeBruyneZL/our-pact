@@ -6,7 +6,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.flyway.FlywayAutoConfiguration;
 
 /**
- * 你我约定后端启动类。
+ * 饭否后端启动类。
  * 排除 Flyway 自动配置：Spring Boot 3.3 按 Flyway 10 调用迁移，和 7.15 的方法签名对不上。
  *
  * @author zhangliang

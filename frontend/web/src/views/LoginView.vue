@@ -1,8 +1,7 @@
 <template>
   <main class="login-page">
     <section class="panel">
-      <p class="eyebrow">Our Pact</p>
-      <h1>你我约定</h1>
+      <h1>饭否</h1>
       <p class="desc">管理端登录后会调用后端示例接口，读取当前用户。</p>
       <el-form :model="form" :rules="rules" ref="formRef" label-position="top" @submit.prevent>
         <el-form-item label="用户名" prop="username">
@@ -69,14 +68,6 @@ async function onSubmit() {
   background: #fffdf8;
   border: 1px solid #e7e0d4;
   border-radius: 16px;
-}
-
-.eyebrow {
-  margin: 0;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: #1f6b4a;
-  font-size: 12px;
 }
 
 h1 {

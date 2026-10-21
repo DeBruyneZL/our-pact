@@ -1,6 +1,6 @@
 <template>
   <div class="page">
-    <van-nav-bar title="你我约定" />
+    <van-nav-bar title="饭否" />
     <p class="intro">登录后进入首页，首页会请求后端的当前用户接口。</p>
     <van-form @submit="onSubmit">
       <van-cell-group inset>
