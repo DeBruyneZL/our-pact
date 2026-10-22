@@ -14,22 +14,22 @@ const router = createRouter({
       path: '/login',
       redirect: () => {
         goLogin()
-        return '/menu'
+        return { name: 'menu' }
       },
     },
     {
       path: '/',
       component: TabLayout,
       children: [
-        { path: '', redirect: '/menu' },
+        { path: '', redirect: { name: 'menu' } },
         { path: 'menu', name: 'menu', component: MenuView },
         { path: 'activities', name: 'activities', component: ActivitiesView },
         { path: 'mine', name: 'mine', component: MineView },
       ],
     },
-    { path: '/profile', redirect: '/mine' },
+    { path: '/profile', redirect: { name: 'mine' } },
     { path: '/profile/edit', name: 'profile-edit', component: ProfileEditView },
-    { path: '/home', redirect: '/menu' },
+    { path: '/home', redirect: { name: 'menu' } },
   ],
 })
 

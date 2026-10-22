@@ -11,9 +11,9 @@ export function unifiedLoginUrl(): string {
 /** 管理端入口。 */
 export function adminHomeUrl(): string {
   if (import.meta.env.DEV) {
-    return 'http://localhost:3000/home'
+    return 'http://localhost:3000/dishes'
   }
-  return '/home'
+  return '/dishes'
 }
 
 /** 超管选择端页面。开发跨端口时附带 token。 */
@@ -31,7 +31,7 @@ export function portalUrl(token?: string): string {
  */
 export function h5HomeUrl(token?: string): string {
   const value = token || getToken()
-  const base = import.meta.env.DEV ? 'http://localhost:3001/home' : '/h5/home'
+  const base = import.meta.env.DEV ? 'http://localhost:3001/menu' : '/h5/menu'
   if (!value || !import.meta.env.DEV) {
     return base
   }
