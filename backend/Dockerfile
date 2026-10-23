@@ -10,5 +10,6 @@ VOLUME /tmp
 COPY --from=build /src/target/our-pact-backend-1.0.0.jar app.jar
 RUN ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
 RUN echo 'Asia/Shanghai' > /etc/timezone
+ENV JAVA_OPTS="-Xms256m -Xmx768m"
 CMD hostname | xargs -I {} echo 127.0.0.1 {} >> /etc/hosts \
-   && java -Djava.security.egd=file:/dev/./urandom -Xmx2048m -Xms1024m -jar app.jar
+   && java -Djava.security.egd=file:/dev/./urandom $JAVA_OPTS -jar app.jar

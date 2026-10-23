@@ -11,11 +11,10 @@ import com.kiven.lpp.ourpact.mapper.UserMapper;
 import com.kiven.lpp.ourpact.service.AvatarStorage;
 import com.kiven.lpp.ourpact.service.UserService;
 import org.springframework.dao.DuplicateKeyException;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
-
-import java.util.Objects;
 
 /**
  * 用户登录与个人资料。
@@ -25,10 +24,17 @@ import java.util.Objects;
 @Service
 public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements UserService {
 
+    /** 用户不存在时也走一次哈希比对，避免用响应时间区分账号。 */
+    private static final String DUMMY_PASSWORD_HASH =
+            "$2b$10$OtEDThUOrjuHzKuFT5HJQOXf6jVoDuA814f5HBxs99YlwJgu2lEyW";
+
     private final AvatarStorage avatarStorage;
 
-    public UserServiceImpl(AvatarStorage avatarStorage) {
+    private final PasswordEncoder passwordEncoder;
+
+    public UserServiceImpl(AvatarStorage avatarStorage, PasswordEncoder passwordEncoder) {
         this.avatarStorage = avatarStorage;
+        this.passwordEncoder = passwordEncoder;
     }
 
     @Override
@@ -39,11 +45,16 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     @Override
     public User authenticate(String account, String password) {
         String value = account == null ? "" : account.trim();
+        String raw = password == null ? "" : password;
         User user = findByUsername(value);
         if (user == null) {
             user = findByPhone(value);
         }
-        if (user == null || !Objects.equals(user.getPassword(), password)) {
+        if (user == null) {
+            passwordEncoder.matches(raw, DUMMY_PASSWORD_HASH);
+            throw new BusinessException("账号或密码错误");
+        }
+        if (!passwordMatches(user, raw)) {
             throw new BusinessException("账号或密码错误");
         }
         return user;
@@ -65,20 +76,26 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     @Override
     @Transactional(rollbackFor = Throwable.class)
     public UserProfileResponse updateProfile(Long userId, ProfileUpdateRequest request) {
-        User user = requireUser(userId);
+        requireUser(userId);
         String phone = request.getPhone().trim();
         User occupied = findByPhone(phone);
         if (occupied != null && !occupied.getId().equals(userId)) {
             throw new BusinessException("手机号已被使用");
         }
-        user.setNickname(request.getNickname().trim());
-        user.setPhone(phone);
+        String nickname = request.getNickname().trim();
         try {
-            updateById(user);
+            update(Wrappers.<User>lambdaUpdate()
+                    .eq(User::getId, userId)
+                    .set(User::getNickname, nickname)
+                    .set(User::getPhone, phone));
         } catch (DuplicateKeyException exception) {
             throw new BusinessException("手机号已被使用");
         }
-        return toProfile(user);
+        User latest = getById(userId);
+        if (latest == null) {
+            throw new BusinessException("用户不存在");
+        }
+        return toProfile(latest);
     }
 
     @Override
@@ -87,12 +104,48 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         User user = requireUser(userId);
         String previous = user.getAvatar();
         String storedName = avatarStorage.save(file);
-        user.setAvatar(storedName);
-        updateById(user);
+        try {
+            update(Wrappers.<User>lambdaUpdate()
+                    .eq(User::getId, userId)
+                    .set(User::getAvatar, storedName));
+        } catch (RuntimeException exception) {
+            avatarStorage.delete(storedName);
+            throw exception;
+        }
+        User latest = getById(userId);
+        if (latest == null || !storedName.equals(latest.getAvatar())) {
+            avatarStorage.delete(storedName);
+            throw new BusinessException("用户不存在");
+        }
         if (!storedName.equals(previous)) {
             avatarStorage.delete(previous);
         }
-        return toProfile(user);
+        return toProfile(latest);
+    }
+
+    /**
+     * 已是 BCrypt 时直接比对。历史明文匹配成功后立刻改写成哈希。
+     */
+    private boolean passwordMatches(User user, String raw) {
+        String stored = user.getPassword();
+        if (isPasswordHash(stored)) {
+            return passwordEncoder.matches(raw, stored);
+        }
+        passwordEncoder.matches(raw, DUMMY_PASSWORD_HASH);
+        if (stored == null || !stored.equals(raw)) {
+            return false;
+        }
+        String hashed = passwordEncoder.encode(raw);
+        update(Wrappers.<User>lambdaUpdate()
+                .eq(User::getId, user.getId())
+                .set(User::getPassword, hashed));
+        user.setPassword(hashed);
+        return true;
+    }
+
+    private boolean isPasswordHash(String stored) {
+        return stored != null
+                && (stored.startsWith("$2a$") || stored.startsWith("$2b$") || stored.startsWith("$2y$"));
     }
 
     private User findByPhone(String phone) {

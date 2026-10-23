@@ -34,7 +34,7 @@ public class AuthController {
     }
 
     /**
-     * 用户名或手机号加密码登录。密码仍按明文比对。
+     * 用户名或手机号加密码登录。
      */
     @PostMapping("/login")
     public Result<LoginResponse> login(@Valid @RequestBody LoginRequest request) {

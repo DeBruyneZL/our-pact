@@ -1,5 +1,6 @@
 import axios, { type AxiosResponse, isAxiosError } from 'axios'
 import type { ApiResult } from './types'
+import { goLogin } from './utils/portal'
 import { clearToken, getToken } from './utils/token'
 
 /** web 与 h5 共用的 axios 实例，开发时由 Vite 把 /api 转到 8080。 */
@@ -16,9 +17,22 @@ request.interceptors.request.use((config) => {
   return config
 })
 
-function handleBody<T>(body: ApiResult<T>): T {
+function isAuthEntry(url?: string) {
+  return Boolean(url && (url.includes('/auth/login') || url.includes('/auth/logout')))
+}
+
+function onUnauthorized(url?: string) {
+  clearToken()
+  const path = window.location.pathname
+  if (isAuthEntry(url) || path === '/login' || path.endsWith('/login')) {
+    return
+  }
+  goLogin()
+}
+
+function handleBody<T>(body: ApiResult<T>, url?: string): T {
   if (body.code === 401) {
-    clearToken()
+    onUnauthorized(url)
     throw new Error(body.message || '未登录或登录已过期')
   }
   if (body.code !== 0) {
@@ -27,11 +41,11 @@ function handleBody<T>(body: ApiResult<T>): T {
   return body.data
 }
 
-function readErrorMessage(error: unknown): string {
+function readErrorMessage(error: unknown, url?: string): string {
   if (isAxiosError(error)) {
     const body = error.response?.data as ApiResult<unknown> | undefined
     if (error.response?.status === 401 || body?.code === 401) {
-      clearToken()
+      onUnauthorized(url || error.config?.url)
     }
     if (body?.message) {
       return body.message
@@ -47,9 +61,10 @@ function readErrorMessage(error: unknown): string {
 async function unwrap<T>(promise: Promise<AxiosResponse<ApiResult<T>>>): Promise<T> {
   try {
     const response = await promise
-    return handleBody(response.data)
+    return handleBody(response.data, response.config.url)
   } catch (error) {
-    throw new Error(readErrorMessage(error))
+    const url = isAxiosError(error) ? error.config?.url : undefined
+    throw new Error(readErrorMessage(error, url))
   }
 }
 

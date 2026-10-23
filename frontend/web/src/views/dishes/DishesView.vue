@@ -142,7 +142,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox, type UploadFile } from 'element-plus'
-import { pactApi, type Dish, type DishCategory } from '@our-pact/shared'
+import { pactApi, readImageDataUrl, type Dish, type DishCategory } from '@our-pact/shared'
 
 const dishes = ref<Dish[]>([])
 const categories = ref<DishCategory[]>([])
@@ -165,7 +165,12 @@ const form = reactive({
   imageUrl: '',
   sortOrder: 0,
   isActive: true,
-  optionGroups: [] as Array<{ name: string; valuesText: string }>,
+  optionGroups: [] as Array<{
+    id?: number
+    name: string
+    valuesText: string
+    knownValues: Array<{ id: number; label: string }>
+  }>,
 })
 
 const filteredDishes = computed(() => {
@@ -205,8 +210,10 @@ function resetForm(dish?: Dish | null) {
   form.sortOrder = dish?.sortOrder || 0
   form.isActive = dish?.isActive ?? true
   form.optionGroups = (dish?.optionGroups || []).map((group) => ({
+    id: group.id,
     name: group.name,
     valuesText: group.values.map((value) => value.label).join('、'),
+    knownValues: group.values.map((value) => ({ id: value.id, label: value.label })),
   }))
 }
 
@@ -228,25 +235,33 @@ function openEdit(dish: Dish) {
 }
 
 function addGroup() {
-  form.optionGroups.push({ name: '', valuesText: '' })
+  form.optionGroups.push({ name: '', valuesText: '', knownValues: [] })
 }
 
-function onImageChange(file: UploadFile) {
+async function onImageChange(file: UploadFile) {
   const raw = file.raw
   if (!raw) return
-  if (!raw.type.startsWith('image/')) {
-    ElMessage.warning('请选择图片文件')
-    return
+  try {
+    form.imageUrl = await readImageDataUrl(raw)
+  } catch (error) {
+    ElMessage.warning(error instanceof Error ? error.message : '图片读取失败')
   }
-  if (raw.size > 2 * 1024 * 1024) {
-    ElMessage.warning('图片请小于 2MB')
-    return
-  }
-  const reader = new FileReader()
-  reader.onload = () => {
-    form.imageUrl = String(reader.result || '')
-  }
-  reader.readAsDataURL(raw)
+}
+
+function draftValues(group: (typeof form.optionGroups)[number]) {
+  const used = new Set<number>()
+  return group.valuesText
+    .split(/[,，、]/)
+    .map((label) => label.trim())
+    .filter(Boolean)
+    .map((label) => {
+      const known = group.knownValues.find((value) => value.label === label && !used.has(value.id))
+      if (!known) {
+        return { label }
+      }
+      used.add(known.id)
+      return { id: known.id, label }
+    })
 }
 
 async function onSave() {
@@ -265,12 +280,9 @@ async function onSave() {
       sortOrder: form.sortOrder || 0,
       optionGroups: form.optionGroups
         .map((group) => ({
+          id: group.id,
           name: group.name.trim(),
-          values: group.valuesText
-            .split(/[,，、]/)
-            .map((label) => label.trim())
-            .filter(Boolean)
-            .map((label) => ({ label })),
+          values: draftValues(group),
         }))
         .filter((group) => group.name && group.values.length > 0),
     }

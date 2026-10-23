@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia'
+import { computed, ref } from 'vue'
 import {
   clearToken,
   fetchCurrentUser,
@@ -9,49 +10,69 @@ import {
   type UserProfile,
 } from '@our-pact/shared'
 
-export const useAuthStore = defineStore('auth', {
-  state: () => ({
-    token: getToken(),
-    profile: null as UserProfile | null,
-  }),
-  getters: {
-    displayName(state): string {
-      return state.profile?.nickname || state.profile?.username || '用户'
-    },
-    isSuperAdmin(state): boolean {
-      return Boolean(state.profile?.superAdmin)
-    },
-  },
-  actions: {
-    syncToken() {
-      this.token = getToken()
-    },
-    async loadProfile() {
-      this.profile = await fetchCurrentUser()
-    },
-    async ensureProfile() {
-      this.syncToken()
-      if (this.profile || !this.token) {
-        return
+export const useAuthStore = defineStore('auth', () => {
+  const token = ref(getToken())
+  const profile = ref<UserProfile | null>(null)
+  let loadedFor = ''
+
+  const displayName = computed(() => profile.value?.nickname || profile.value?.username || '用户')
+  const isSuperAdmin = computed(() => Boolean(profile.value?.superAdmin))
+
+  function syncToken() {
+    token.value = getToken()
+  }
+
+  async function loadProfile() {
+    profile.value = await fetchCurrentUser()
+    loadedFor = getToken()
+  }
+
+  async function ensureProfile() {
+    syncToken()
+    if (!token.value) {
+      profile.value = null
+      loadedFor = ''
+      return
+    }
+    if (profile.value && loadedFor === token.value) {
+      return
+    }
+    await loadProfile()
+  }
+
+  async function saveProfile(nickname: string, phone: string) {
+    profile.value = await updateProfile({ nickname, phone })
+    loadedFor = getToken()
+  }
+
+  async function changeAvatar(file: File) {
+    profile.value = await uploadAvatar(file)
+    loadedFor = getToken()
+  }
+
+  async function logout() {
+    try {
+      if (token.value) {
+        await logoutApi()
       }
-      await this.loadProfile()
-    },
-    async saveProfile(nickname: string, phone: string) {
-      this.profile = await updateProfile({ nickname, phone })
-    },
-    async changeAvatar(file: File) {
-      this.profile = await uploadAvatar(file)
-    },
-    async logout() {
-      try {
-        if (this.token) {
-          await logoutApi()
-        }
-      } finally {
-        this.token = ''
-        this.profile = null
-        clearToken()
-      }
-    },
-  },
+    } finally {
+      token.value = ''
+      profile.value = null
+      loadedFor = ''
+      clearToken()
+    }
+  }
+
+  return {
+    token,
+    profile,
+    displayName,
+    isSuperAdmin,
+    syncToken,
+    loadProfile,
+    ensureProfile,
+    saveProfile,
+    changeAvatar,
+    logout,
+  }
 })

@@ -121,6 +121,7 @@ import { showConfirmDialog, showFailToast, showSuccessToast, type UploaderFileLi
 import {
   formatDateTime,
   pactApi,
+  readImageDataUrl,
   type Activity,
   type ActivityItem,
   type ActivityStatus,
@@ -309,17 +310,14 @@ async function onUpload(item: Activity, file: UploaderFileListItem | UploaderFil
     showFailToast('读取照片失败')
     return
   }
-  const reader = new FileReader()
-  reader.onload = async () => {
-    try {
-      await pactApi.uploadActivityPhoto(item.id, guest.user!.id, String(reader.result))
-      showSuccessToast('照片已上传')
-      await load()
-    } catch (error) {
-      showFailToast(error instanceof Error ? error.message : '上传失败')
-    }
+  try {
+    const imageDataUrl = await readImageDataUrl(raw)
+    await pactApi.uploadActivityPhoto(item.id, guest.user.id, imageDataUrl)
+    showSuccessToast('照片已上传')
+    await load()
+  } catch (error) {
+    showFailToast(error instanceof Error ? error.message : '上传失败')
   }
-  reader.readAsDataURL(raw)
 }
 
 onMounted(async () => {

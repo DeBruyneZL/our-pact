@@ -1,6 +1,5 @@
 export { http, request } from './request'
 export { fetchCurrentUser, login, logout, updateProfile, uploadAvatar } from './api/auth'
-export { enterDemoSession, DEMO_TOKEN, isDemoToken } from './api/demoAuth'
 export { pactApi } from './api/pactMock'
 export {
   AVATAR_MAX_BYTES,
@@ -16,6 +15,7 @@ export {
   h5HomeUrl,
   maskPhone,
   portalUrl,
+  readImageDataUrl,
   setToken,
   unifiedLoginUrl,
 } from './utils'

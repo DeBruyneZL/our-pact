@@ -7,11 +7,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Locale;
-import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -23,7 +20,7 @@ import java.util.UUID;
 @Service
 public class AvatarStorage {
 
-    private static final Set<String> ALLOWED_EXTENSIONS = Set.of("jpg", "jpeg", "png", "gif", "webp");
+    private static final int MAX_BYTES = 2 * 1024 * 1024;
 
     private static final String URL_PREFIX = "/api/files/avatars/";
 
@@ -46,17 +43,21 @@ public class AvatarStorage {
     }
 
     /**
-     * 保存上传文件，返回生成的文件名。
+     * 校验文件头后保存，返回生成的文件名。
      */
     public String save(MultipartFile file) {
         if (file == null || file.isEmpty()) {
             throw new BusinessException("请选择头像");
         }
-        String extension = extensionOf(file.getOriginalFilename());
+        byte[] content = readContent(file);
+        if (content.length > MAX_BYTES) {
+            throw new BusinessException("头像不能超过 2MB");
+        }
+        String extension = detectExtension(content);
         String storedName = UUID.randomUUID().toString().replace("-", "") + "." + extension;
         Path target = directory.resolve(storedName);
-        try (InputStream input = file.getInputStream()) {
-            Files.copy(input, target);
+        try {
+            Files.write(target, content);
         } catch (IOException exception) {
             throw new BusinessException("头像保存失败");
         }
@@ -87,19 +88,69 @@ public class AvatarStorage {
         return URL_PREFIX + storedName;
     }
 
-    private String extensionOf(String originalName) {
-        if (originalName == null) {
-            throw new BusinessException("头像只支持 jpg、png、gif、webp");
+    private byte[] readContent(MultipartFile file) {
+        try {
+            return file.getBytes();
+        } catch (IOException exception) {
+            throw new BusinessException("头像保存失败");
         }
-        int dot = originalName.lastIndexOf('.');
-        if (dot < 0 || dot == originalName.length() - 1) {
-            throw new BusinessException("头像只支持 jpg、png、gif、webp");
+    }
+
+    private String detectExtension(byte[] content) {
+        if (isJpeg(content)) {
+            return "jpg";
         }
-        String extension = originalName.substring(dot + 1).toLowerCase(Locale.ROOT);
-        if (!ALLOWED_EXTENSIONS.contains(extension)) {
-            throw new BusinessException("头像只支持 jpg、png、gif、webp");
+        if (isPng(content)) {
+            return "png";
         }
-        return extension;
+        if (isGif(content)) {
+            return "gif";
+        }
+        if (isWebp(content)) {
+            return "webp";
+        }
+        throw new BusinessException("头像只支持 jpg、png、gif、webp");
+    }
+
+    private boolean isJpeg(byte[] content) {
+        return content.length >= 3
+                && (content[0] & 0xFF) == 0xFF
+                && (content[1] & 0xFF) == 0xD8
+                && (content[2] & 0xFF) == 0xFF;
+    }
+
+    private boolean isPng(byte[] content) {
+        return content.length >= 8
+                && (content[0] & 0xFF) == 0x89
+                && content[1] == 0x50
+                && content[2] == 0x4E
+                && content[3] == 0x47
+                && content[4] == 0x0D
+                && content[5] == 0x0A
+                && content[6] == 0x1A
+                && content[7] == 0x0A;
+    }
+
+    private boolean isGif(byte[] content) {
+        return content.length >= 6
+                && content[0] == 'G'
+                && content[1] == 'I'
+                && content[2] == 'F'
+                && content[3] == '8'
+                && (content[4] == '7' || content[4] == '9')
+                && content[5] == 'a';
+    }
+
+    private boolean isWebp(byte[] content) {
+        return content.length >= 12
+                && content[0] == 'R'
+                && content[1] == 'I'
+                && content[2] == 'F'
+                && content[3] == 'F'
+                && content[8] == 'W'
+                && content[9] == 'E'
+                && content[10] == 'B'
+                && content[11] == 'P';
     }
 
     private boolean isStoredName(String storedName) {

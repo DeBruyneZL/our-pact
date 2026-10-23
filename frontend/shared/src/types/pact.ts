@@ -43,8 +43,9 @@ export interface DishDraft {
   isActive: boolean
   sortOrder: number
   optionGroups: Array<{
+    id?: number
     name: string
-    values: Array<{ label: string }>
+    values: Array<{ id?: number; label: string }>
   }>
 }
 

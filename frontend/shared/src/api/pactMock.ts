@@ -170,7 +170,17 @@ function load(): MockDb {
 }
 
 function save(db: MockDb) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(db))
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(db))
+  } catch (error) {
+    if (
+      error instanceof DOMException &&
+      (error.name === 'QuotaExceededError' || error.name === 'NS_ERROR_DOM_QUOTA_REACHED')
+    ) {
+      throw new Error('本地空间已满，请删掉一些图片后再试')
+    }
+    throw error
+  }
 }
 
 function allocId(db: MockDb) {
@@ -201,19 +211,25 @@ function mapDraftGroups(db: MockDb, groups: DishDraft['optionGroups']) {
       if (!name) {
         return null
       }
+      const used = new Set<number>()
       const values = (group.values || [])
         .map((value, vi) => {
           const label = value.label.trim()
           if (!label) {
             return null
           }
-          return { id: allocId(db), label, sortOrder: vi }
+          let id = value.id
+          if (id == null || used.has(id)) {
+            id = allocId(db)
+          }
+          used.add(id)
+          return { id, label, sortOrder: vi }
         })
         .filter(Boolean) as Array<{ id: number; label: string; sortOrder: number }>
       if (values.length === 0) {
         return null
       }
-      return { id: allocId(db), name, sortOrder: gi, values }
+      return { id: group.id ?? allocId(db), name, sortOrder: gi, values }
     })
     .filter(Boolean) as Dish['optionGroups']
 }
@@ -453,7 +469,25 @@ export const pactApi = {
     if (db.users.some((user) => user.name === trimmed && user.id !== id)) {
       throw new Error('账号名已存在，请换一个')
     }
+    const previousName = db.users[index].name
     db.users[index] = { ...db.users[index], name: trimmed }
+    if (previousName !== trimmed) {
+      for (const activity of db.activities || []) {
+        if (activity.userId === id) {
+          activity.userName = trimmed
+        }
+        for (const item of activity.items || []) {
+          if (item.addedByUserId === id) {
+            item.addedByUserName = trimmed
+          }
+        }
+        for (const photo of activity.photos || []) {
+          if (photo.userId === id) {
+            photo.userName = trimmed
+          }
+        }
+      }
+    }
     save(db)
     return delay(withCounts(db).find((user) => user.id === id)!)
   },

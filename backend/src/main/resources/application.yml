@@ -27,7 +27,6 @@ mybatis-plus:
   mapper-locations: classpath*:/mapper/**/*.xml
   configuration:
     map-underscore-to-camel-case: true
-    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
   global-config:
     banner: false
     db-config:
@@ -40,6 +39,8 @@ mybatis-plus:
 app:
   avatar:
     dir: ${AVATAR_DIR:${user.home}/our-pact/avatars}
+  cors:
+    allowed-origins: ${CORS_ORIGINS:http://localhost:3000,http://localhost:3001}
 
 # 令牌放在请求头 Authorization，前端登录后原样回传
 sa-token:
