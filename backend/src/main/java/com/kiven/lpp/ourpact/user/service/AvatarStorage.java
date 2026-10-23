@@ -1,4 +1,4 @@
-package com.kiven.lpp.ourpact.service;
+package com.kiven.lpp.ourpact.user.service;
 
 import com.kiven.lpp.ourpact.common.BusinessException;
 import lombok.extern.slf4j.Slf4j;

@@ -1,14 +1,14 @@
-package com.kiven.lpp.ourpact.controller;
+package com.kiven.lpp.ourpact.user.controller;
 
 import cn.dev33.satoken.stp.StpUtil;
 import com.kiven.lpp.ourpact.common.BusinessException;
 import com.kiven.lpp.ourpact.common.Result;
-import com.kiven.lpp.ourpact.dto.LoginRequest;
-import com.kiven.lpp.ourpact.dto.LoginResponse;
-import com.kiven.lpp.ourpact.dto.ProfileUpdateRequest;
-import com.kiven.lpp.ourpact.dto.UserProfileResponse;
-import com.kiven.lpp.ourpact.entity.User;
-import com.kiven.lpp.ourpact.service.UserService;
+import com.kiven.lpp.ourpact.user.dto.LoginRequest;
+import com.kiven.lpp.ourpact.user.dto.LoginResponse;
+import com.kiven.lpp.ourpact.user.dto.ProfileUpdateRequest;
+import com.kiven.lpp.ourpact.user.dto.UserProfileResponse;
+import com.kiven.lpp.ourpact.user.entity.User;
+import com.kiven.lpp.ourpact.user.service.UserService;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;

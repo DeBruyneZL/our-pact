@@ -1,15 +1,15 @@
-package com.kiven.lpp.ourpact.service.impl;
+package com.kiven.lpp.ourpact.user.service.impl;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.kiven.lpp.ourpact.common.BusinessException;
 import com.kiven.lpp.ourpact.common.YesNo;
-import com.kiven.lpp.ourpact.dto.ProfileUpdateRequest;
-import com.kiven.lpp.ourpact.dto.UserProfileResponse;
-import com.kiven.lpp.ourpact.entity.User;
-import com.kiven.lpp.ourpact.mapper.UserMapper;
-import com.kiven.lpp.ourpact.service.AvatarStorage;
-import com.kiven.lpp.ourpact.service.UserService;
+import com.kiven.lpp.ourpact.user.dto.ProfileUpdateRequest;
+import com.kiven.lpp.ourpact.user.dto.UserProfileResponse;
+import com.kiven.lpp.ourpact.user.entity.User;
+import com.kiven.lpp.ourpact.user.mapper.UserMapper;
+import com.kiven.lpp.ourpact.user.service.AvatarStorage;
+import com.kiven.lpp.ourpact.user.service.UserService;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;

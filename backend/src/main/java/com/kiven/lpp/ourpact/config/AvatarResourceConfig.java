@@ -1,6 +1,6 @@
 package com.kiven.lpp.ourpact.config;
 
-import com.kiven.lpp.ourpact.service.AvatarStorage;
+import com.kiven.lpp.ourpact.user.service.AvatarStorage;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;

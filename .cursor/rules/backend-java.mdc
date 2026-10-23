@@ -10,9 +10,16 @@ alwaysApply: false
 
 ## 分层
 
+先按业务分包，再按职责分层。公共能力和配置留在根上。
+
 ```
-controller / service + service.impl / mapper / entity / dto / common
+common / config
+{业务}/controller
+{业务}/service + service.impl
+{业务}/mapper / entity / dto
 ```
+
+实体公共字段放根上的 `entity.BaseEntity`。
 
 - 有表的服务：接口继承 `IService`，实现继承 `ServiceImpl`。无持久化的编排类只写一个 `@Service`。
 - 构造器注入。入参 `@Valid`。Controller 只做接入，业务放 Service。
@@ -47,7 +54,7 @@ return Result.success(PageUtil.toResult(page));
 | 按主键、单个 `eq` / `in`、无 JOIN 的 count | 短 Wrapper |
 
 ```xml
-<select id="queryByPage" resultType="com.kiven.lpp.ourpact.dto.UserProfileResponse">
+<select id="queryByPage" resultType="com.kiven.lpp.ourpact.user.dto.UserProfileResponse">
     SELECT t.id, t.username, t.nickname, t.create_time
     FROM sys_user t
     <where>

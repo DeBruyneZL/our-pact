@@ -1,9 +1,9 @@
-package com.kiven.lpp.ourpact.service;
+package com.kiven.lpp.ourpact.user.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
-import com.kiven.lpp.ourpact.dto.ProfileUpdateRequest;
-import com.kiven.lpp.ourpact.dto.UserProfileResponse;
-import com.kiven.lpp.ourpact.entity.User;
+import com.kiven.lpp.ourpact.user.dto.ProfileUpdateRequest;
+import com.kiven.lpp.ourpact.user.dto.UserProfileResponse;
+import com.kiven.lpp.ourpact.user.entity.User;
 import org.springframework.web.multipart.MultipartFile;
 
 /**

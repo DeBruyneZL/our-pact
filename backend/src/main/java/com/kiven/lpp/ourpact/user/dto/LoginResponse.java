@@ -1,4 +1,4 @@
-package com.kiven.lpp.ourpact.dto;
+package com.kiven.lpp.ourpact.user.dto;
 
 import lombok.Data;
 

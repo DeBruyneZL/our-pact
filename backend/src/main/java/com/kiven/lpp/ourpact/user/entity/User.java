@@ -1,6 +1,7 @@
-package com.kiven.lpp.ourpact.entity;
+package com.kiven.lpp.ourpact.user.entity;
 
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.kiven.lpp.ourpact.entity.BaseEntity;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 

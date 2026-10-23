@@ -12,7 +12,7 @@ import org.springframework.boot.autoconfigure.flyway.FlywayAutoConfiguration;
  * @author zhangliang
  */
 @SpringBootApplication(exclude = FlywayAutoConfiguration.class)
-@MapperScan("com.kiven.lpp.ourpact.mapper")
+@MapperScan("com.kiven.lpp.ourpact.*.mapper")
 public class OurPactApplication {
 
     public static void main(String[] args) {
