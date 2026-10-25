@@ -102,7 +102,9 @@ export interface Activity {
 export interface ActivitySubmitItem {
   dishId: number
   note?: string
-  options?: Array<{ groupId: number; valueId: number }>
+  options?: Array<{ groupId: number; valueId: number; groupName?: string; optionLabel?: string }>
+  /** 菜单改走服务端后，活动快照直接带上菜名 */
+  dishName?: string
 }
 
 export interface AdminNotice {

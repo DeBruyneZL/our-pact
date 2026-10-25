@@ -9,26 +9,25 @@
         <RouterLink :class="{ active: route.name === 'dishes' }" :to="{ name: 'dishes' }">菜单维护</RouterLink>
         <RouterLink :class="{ active: route.name === 'activities' }" :to="{ name: 'activities' }">活动记录</RouterLink>
         <RouterLink :class="{ active: route.name === 'users' }" :to="{ name: 'users' }">用户列表</RouterLink>
-        <RouterLink :class="{ active: route.name === 'profile' }" :to="{ name: 'profile' }">个人中心</RouterLink>
-        <button class="switch" type="button" @click="enterH5">切换用户端</button>
-        <RouterLink class="switch-link" :to="{ name: 'portal' }">返回选端</RouterLink>
       </nav>
-      <div class="account" v-if="auth.profile">
-        <el-avatar :size="38" :src="auth.profile.avatar || undefined">{{ initial }}</el-avatar>
-        <div class="account-text">
-          <strong>{{ auth.displayName }}</strong>
-          <span>超级管理员</span>
-        </div>
-        <el-button link type="primary" @click="onLogout">退出</el-button>
+      <div v-if="auth.profile" class="sidebar-foot">
+        <el-dropdown trigger="click" placement="top-start" @command="onCommand">
+          <button class="profile-trigger" type="button">
+            <el-avatar :size="34" :src="auth.profile.avatar || undefined">{{ initial }}</el-avatar>
+            <span class="name">{{ auth.displayName }}</span>
+            <span class="caret">▴</span>
+          </button>
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item command="profile">个人中心</el-dropdown-item>
+              <el-dropdown-item command="h5">切换到用户端</el-dropdown-item>
+              <el-dropdown-item command="logout" divided>退出登录</el-dropdown-item>
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
       </div>
     </aside>
     <section class="main">
-      <header class="topbar">
-        <div>
-          <p class="crumb">饭否 / {{ pageTitle }}</p>
-          <h1>{{ pageTitle }}</h1>
-        </div>
-      </header>
       <div class="body">
         <RouterView />
       </div>
@@ -48,23 +47,24 @@ const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
 
-const pageTitle = computed(() => {
-  const map: Record<string, string> = {
-    dishes: '菜单维护',
-    activities: '活动记录',
-    users: '用户列表',
-    profile: '个人中心',
-  }
-  return map[String(route.name)] || '管理端'
-})
 const initial = computed(() => auth.displayName.slice(0, 1))
 
 onMounted(() => {
   auth.ensureProfile().catch(() => undefined)
 })
 
-function enterH5() {
-  goH5(auth.token)
+function onCommand(command: string) {
+  if (command === 'profile') {
+    void router.push({ name: 'profile' })
+    return
+  }
+  if (command === 'h5') {
+    goH5(auth.token)
+    return
+  }
+  if (command === 'logout') {
+    void onLogout()
+  }
 }
 
 async function onLogout() {
@@ -87,15 +87,15 @@ async function onLogout() {
   display: grid;
   grid-template-columns: 220px 1fr;
   min-height: 100vh;
-  background: var(--paper);
+  background: #e7f0eb;
 }
 
 .sidebar {
   display: flex;
   flex-direction: column;
   padding: 24px 12px;
-  background: #faf8f3;
-  border-right: 1px solid var(--line);
+  background: #e7f0eb;
+  border-right: 1px solid #d3e2da;
   color: var(--ink);
 }
 
@@ -116,14 +116,13 @@ async function onLogout() {
   gap: 4px;
 }
 
-.menu a,
-.menu .switch {
+.menu a {
   display: block;
   width: 100%;
   padding: 12px 14px;
   border: 0;
   border-radius: 10px;
-  color: #5c5852;
+  color: #3f5248;
   background: transparent;
   text-decoration: none;
   text-align: left;
@@ -132,70 +131,68 @@ async function onLogout() {
 }
 
 .menu a.active,
-.menu a:hover,
-.menu .switch:hover {
-  background: rgba(91, 143, 122, 0.12);
+.menu a:hover {
+  background: #fff;
   color: var(--brand-dark);
   font-weight: 600;
+  box-shadow: 0 1px 4px rgba(44, 42, 38, 0.08);
 }
 
-.switch-link {
-  margin-top: 4px;
-  color: var(--muted) !important;
-  font-size: 13px;
-}
-
-.account {
-  display: grid;
-  grid-template-columns: 38px 1fr auto;
-  gap: 10px;
-  align-items: center;
+.sidebar-foot {
   margin-top: auto;
-  padding: 16px 8px 6px;
-  border-top: 1px solid var(--line);
+  padding-top: 12px;
+  border-top: 1px solid #d3e2da;
 }
 
-.account-text {
-  min-width: 0;
-}
-
-.account-text strong,
-.account-text span {
+.sidebar-foot :deep(.el-dropdown) {
   display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.account-text span {
-  margin-top: 3px;
-  color: var(--muted);
-  font-size: 12px;
+  width: 100%;
 }
 
 .main {
   min-width: 0;
+  background: var(--surface);
 }
 
-.topbar {
+.profile-trigger {
   display: flex;
   align-items: center;
-  min-height: 72px;
-  padding: 14px 28px;
-  background: rgba(255, 252, 247, 0.92);
-  border-bottom: 1px solid var(--line);
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
 }
 
-.crumb {
-  margin: 0 0 4px;
+.profile-trigger:hover {
+  background: rgba(91, 143, 122, 0.12);
+}
+
+.profile-trigger :deep(.el-avatar) {
+  flex-shrink: 0;
+  background: var(--brand);
+  color: #fff;
+  font-weight: 600;
+}
+
+.profile-trigger .name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.profile-trigger .caret {
   color: var(--muted);
-  font-size: 12px;
-}
-
-.topbar h1 {
-  margin: 0;
-  font-size: 20px;
-  font-weight: 650;
+  font-size: 11px;
 }
 
 .body {
@@ -209,7 +206,11 @@ async function onLogout() {
 
   .sidebar {
     border-right: none;
-    border-bottom: 1px solid var(--line);
+    border-bottom: 1px solid #d3e2da;
+  }
+
+  .body {
+    padding: 20px 16px 40px;
   }
 }
 </style>

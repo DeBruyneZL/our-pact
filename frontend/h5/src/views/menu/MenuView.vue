@@ -107,7 +107,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { showFailToast, showSuccessToast } from 'vant'
-import { pactApi, type Dish, type DishCategory } from '@our-pact/shared'
+import { menuApi, pactApi, type Dish, type DishCategory } from '@our-pact/shared'
 import { useGuestStore } from '@/stores/guest'
 import BrandLogo from '@/components/BrandLogo.vue'
 
@@ -145,8 +145,8 @@ async function load() {
   loading.value = true
   try {
     const [dishList, categoryList] = await Promise.all([
-      pactApi.listDishes(true),
-      pactApi.listCategories(),
+      menuApi.listDishes(true),
+      menuApi.listCategories(),
     ])
     dishes.value = dishList
     categories.value = categoryList
@@ -205,16 +205,26 @@ async function submit() {
     const created = await pactApi.createActivity({
       userId: guest.user.id,
       scheduledAt: new Date(scheduledAt.value).toISOString(),
-      items: Object.values(selected).map((item) => ({
-        dishId: item.dishId,
-        note: item.note.trim() || undefined,
-        options: Object.entries(item.options)
-          .filter(([, valueId]) => valueId != null)
-          .map(([groupId, valueId]) => ({
-            groupId: Number(groupId),
-            valueId: valueId as number,
-          })),
-      })),
+      items: Object.values(selected).map((item) => {
+        const dish = dishes.value.find((entry) => entry.id === item.dishId)
+        return {
+          dishId: item.dishId,
+          dishName: dish?.name,
+          note: item.note.trim() || undefined,
+          options: Object.entries(item.options)
+            .filter(([, valueId]) => valueId != null)
+            .map(([groupId, valueId]) => {
+              const group = dish?.optionGroups.find((entry) => entry.id === Number(groupId))
+              const value = group?.values.find((entry) => entry.id === valueId)
+              return {
+                groupId: Number(groupId),
+                valueId: valueId as number,
+                groupName: group?.name,
+                optionLabel: value?.label,
+              }
+            }),
+        }
+      }),
     })
     Object.keys(selected).forEach((key) => delete selected[Number(key)])
     step.value = 'menu'

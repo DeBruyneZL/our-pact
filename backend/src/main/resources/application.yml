@@ -39,6 +39,8 @@ mybatis-plus:
 app:
   avatar:
     dir: ${AVATAR_DIR:${user.home}/our-pact/avatars}
+  dish:
+    dir: ${DISH_IMAGE_DIR:${user.home}/our-pact/dishes}
   cors:
     allowed-origins: ${CORS_ORIGINS:http://localhost:3000,http://localhost:3001}
 

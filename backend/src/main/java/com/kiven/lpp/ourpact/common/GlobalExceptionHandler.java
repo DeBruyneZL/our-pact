@@ -52,7 +52,7 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(MaxUploadSizeExceededException.class)
     public Result<Void> handleUploadSize(MaxUploadSizeExceededException exception) {
-        return Result.fail("头像不能超过 2MB");
+        return Result.fail("图片不能超过 2MB");
     }
 
     /**
@@ -60,7 +60,7 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(MissingServletRequestPartException.class)
     public Result<Void> handleMissingPart(MissingServletRequestPartException exception) {
-        return Result.fail("请选择头像");
+        return Result.fail("请选择图片");
     }
 
     /**

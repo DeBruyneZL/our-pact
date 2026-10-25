@@ -121,6 +121,7 @@ import { showConfirmDialog, showFailToast, showSuccessToast, type UploaderFileLi
 import {
   formatDateTime,
   pactApi,
+  menuApi,
   readImageDataUrl,
   type Activity,
   type ActivityItem,
@@ -224,7 +225,7 @@ async function openAddDish(item: Activity) {
   adding.value = item
   pickedDishIds.value = []
   if (!dishes.value.length) {
-    dishes.value = await pactApi.listDishes(true)
+    dishes.value = await menuApi.listDishes(true)
   }
   showAdd.value = true
 }
@@ -247,7 +248,10 @@ async function submitAdd() {
     await pactApi.addActivityItems(
       adding.value.id,
       guest.user.id,
-      pickedDishIds.value.map((dishId) => ({ dishId })),
+      pickedDishIds.value.map((dishId) => {
+        const dish = dishes.value.find((entry) => entry.id === dishId)
+        return { dishId, dishName: dish?.name }
+      }),
     )
     showAdd.value = false
     showSuccessToast('已加菜')

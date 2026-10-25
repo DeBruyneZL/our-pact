@@ -20,86 +20,145 @@
       </el-radio-group>
     </div>
 
-    <el-table :data="filteredDishes" v-loading="loading" stripe>
-      <el-table-column label="菜品" min-width="240">
-        <template #default="{ row }">
-          <div class="dish-cell">
-            <img v-if="row.imageUrl" :src="row.imageUrl" class="thumb" alt="" />
-            <div>
-              <strong>{{ row.name }}</strong>
-              <div class="muted">{{ row.description }}</div>
+    <div class="menu-table">
+      <el-table :data="filteredDishes" v-loading="loading" :row-class-name="rowClass">
+        <el-table-column label="菜品" min-width="280">
+          <template #default="{ row }">
+            <div class="dish-cell">
+              <img v-if="row.imageUrl" :src="row.imageUrl" class="thumb" alt="" />
+              <span v-else class="thumb placeholder">{{ row.name.slice(0, 1) }}</span>
+              <div class="dish-text">
+                <div class="dish-title">
+                  <strong>{{ row.name }}</strong>
+                  <span class="status" :class="row.isActive ? 'on' : 'off'">
+                    {{ row.isActive ? '上架' : '下架' }}
+                  </span>
+                </div>
+                <div class="muted">{{ row.description || '暂无描述' }}</div>
+              </div>
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column label="分类" width="110">
+          <template #default="{ row }">
+            <span class="cat-tag">{{ categoryName(row.categoryId) }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="特殊项" min-width="260">
+          <template #default="{ row }">
+            <div v-if="row.optionGroups.length" class="chips">
+              <span v-for="group in row.optionGroups" :key="group.id" class="chip">
+                {{ group.name }}
+                <em>{{ group.values.map((value) => value.label).join(' / ') }}</em>
+              </span>
+            </div>
+            <span v-else class="empty">无</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="168" align="right">
+          <template #default="{ row }">
+            <div class="ops">
+              <el-button link type="primary" @click="openEdit(row)">编辑</el-button>
+              <el-button link type="danger" @click="onDelete(row)">删除</el-button>
+              <el-button
+                link
+                :type="row.isActive ? 'warning' : 'success'"
+                :loading="togglingId === row.id"
+                @click="onToggleActive(row)"
+              >
+                {{ row.isActive ? '下架' : '上架' }}
+              </el-button>
+            </div>
+          </template>
+        </el-table-column>
+      </el-table>
+    </div>
+
+    <el-dialog
+      v-model="dialogVisible"
+      :title="editing ? '编辑菜品' : '新建菜品'"
+      width="720px"
+      class="dish-dialog"
+      align-center
+      destroy-on-close
+    >
+      <el-form class="dish-form" label-position="top">
+        <div class="basic">
+          <div class="photo">
+            <div class="photo-frame" :class="{ filled: !!form.imageUrl }">
+              <img v-if="form.imageUrl" :src="form.imageUrl" alt="" />
+              <template v-else>
+                <span class="photo-initial">{{ form.name.trim().slice(0, 1) || '菜' }}</span>
+                <span class="photo-tip">上传菜品照片</span>
+              </template>
+            </div>
+            <div class="photo-actions">
+              <el-upload :show-file-list="false" accept="image/*" :auto-upload="false" :on-change="onImageChange">
+                <el-button size="small" type="primary" plain>
+                  {{ form.imageUrl ? '更换图片' : '上传图片' }}
+                </el-button>
+              </el-upload>
+              <el-button v-if="form.imageUrl" size="small" link type="danger" @click="form.imageUrl = ''">移除</el-button>
             </div>
           </div>
-        </template>
-      </el-table-column>
-      <el-table-column label="分类" width="100">
-        <template #default="{ row }">{{ categoryName(row.categoryId) }}</template>
-      </el-table-column>
-      <el-table-column label="特殊项" min-width="240">
-        <template #default="{ row }">
-          {{ formatOptions(row) }}
-        </template>
-      </el-table-column>
-      <el-table-column label="状态" width="90">
-        <template #default="{ row }">{{ row.isActive ? '上架' : '下架' }}</template>
-      </el-table-column>
-      <el-table-column label="操作" width="160">
-        <template #default="{ row }">
-          <el-button link type="primary" @click="openEdit(row)">编辑</el-button>
-          <el-button link type="danger" @click="onDelete(row)">删除</el-button>
-        </template>
-      </el-table-column>
-    </el-table>
-
-    <el-dialog v-model="dialogVisible" :title="editing ? '编辑菜品' : '新建菜品'" width="560px" destroy-on-close>
-      <el-form label-position="top">
-        <el-form-item label="分类" required>
-          <el-select v-model="form.categoryId" placeholder="选择分类" style="width: 100%">
-            <el-option v-for="cat in categories" :key="cat.id" :label="cat.name" :value="cat.id" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="菜名">
-          <el-input v-model="form.name" />
-        </el-form-item>
-        <el-form-item label="描述">
-          <el-input v-model="form.description" type="textarea" :rows="3" />
-        </el-form-item>
-        <el-form-item label="菜品图片（可选）">
-          <div class="image-upload">
-            <el-upload
-              :show-file-list="false"
-              accept="image/*"
-              :auto-upload="false"
-              :on-change="onImageChange"
-            >
-              <el-button>{{ form.imageUrl ? '更换图片' : '本地上传' }}</el-button>
-            </el-upload>
-            <el-button v-if="form.imageUrl" link type="danger" @click="form.imageUrl = ''">清除</el-button>
+          <div class="basic-fields">
+            <div class="field-row">
+              <el-form-item label="菜名">
+                <el-input v-model="form.name" maxlength="64" placeholder="如：番茄牛腩" />
+              </el-form-item>
+              <el-form-item label="分类" required>
+                <el-select v-model="form.categoryId" placeholder="选择分类">
+                  <el-option v-for="cat in categories" :key="cat.id" :label="cat.name" :value="cat.id" />
+                </el-select>
+              </el-form-item>
+            </div>
+            <el-form-item label="描述" class="desc-item">
+              <el-input
+                v-model="form.description"
+                type="textarea"
+                :rows="3"
+                maxlength="500"
+                show-word-limit
+                placeholder="口味、适合的场合"
+              />
+            </el-form-item>
           </div>
-          <img v-if="form.imageUrl" :src="form.imageUrl" class="preview" alt="预览" />
-        </el-form-item>
-        <el-form-item label="排序">
-          <el-input-number v-model="form.sortOrder" :min="0" />
-        </el-form-item>
-        <el-form-item label="上架可见">
-          <el-switch v-model="form.isActive" />
-        </el-form-item>
-        <div class="option-head">
-          <strong>特殊项</strong>
-          <el-button size="small" @click="addGroup">添加一组</el-button>
         </div>
-        <div v-for="(group, index) in form.optionGroups" :key="index" class="option-box">
+
+        <div class="meta">
+          <div class="meta-card">
+            <span class="meta-label">排序</span>
+            <el-input-number v-model="form.sortOrder" :min="0" controls-position="right" />
+            <span class="meta-hint">数字越小越靠前</span>
+          </div>
+          <div class="meta-card">
+            <span class="meta-label">上架</span>
+            <el-switch v-model="form.isActive" />
+            <span class="meta-hint">{{ form.isActive ? '用户端可见' : '用户端隐藏' }}</span>
+          </div>
+        </div>
+
+        <section class="options">
           <div class="option-head">
-            <span>第 {{ index + 1 }} 组</span>
+            <div>
+              <strong>特殊项</strong>
+              <p>点餐时供用户选择，例如辣度、份量。</p>
+            </div>
+            <el-button size="small" @click="addGroup">添加一组</el-button>
+          </div>
+          <p v-if="!form.optionGroups.length" class="option-empty">还没有特殊项</p>
+          <div v-for="(group, index) in form.optionGroups" :key="index" class="option-box">
+            <label class="mini">
+              <span>项名</span>
+              <el-input v-model="group.name" maxlength="32" placeholder="如：辣度" />
+            </label>
+            <label class="mini">
+              <span>可选值，用顿号或逗号分隔</span>
+              <el-input v-model="group.valuesText" placeholder="微辣、中辣、特辣" />
+            </label>
             <el-button link type="danger" @click="form.optionGroups.splice(index, 1)">移除</el-button>
           </div>
-          <el-form-item label="项名">
-            <el-input v-model="group.name" placeholder="如：辣度" />
-          </el-form-item>
-          <el-form-item label="可选值（顿号或逗号分隔）">
-            <el-input v-model="group.valuesText" placeholder="微辣、中辣、特辣" />
-          </el-form-item>
-        </div>
+        </section>
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
@@ -112,18 +171,23 @@
         <el-input v-model="categoryForm.name" placeholder="新分类名称，如：小吃" maxlength="32" />
         <el-button type="primary" :loading="categorySaving" @click="onCreateCategory">添加</el-button>
       </div>
-      <el-table :data="categories" size="small">
-        <el-table-column label="名称" min-width="140">
-          <template #default="{ row }">
-            <el-input v-if="editingCategoryId === row.id" v-model="editingCategoryName" size="small" />
-            <span v-else>{{ row.name }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="排序" width="100">
-          <template #default="{ row }">{{ row.sortOrder }}</template>
-        </el-table-column>
-        <el-table-column label="操作" width="160">
-          <template #default="{ row }">
+      <p class="cat-hint">按住一行拖动，松手后保存顺序。</p>
+      <ul class="cat-list">
+        <li
+          v-for="(row, index) in categories"
+          :key="row.id"
+          class="cat-row"
+          :class="{ over: dragOverId === row.id }"
+          :draggable="editingCategoryId !== row.id && !categorySorting"
+          @dragstart="onCategoryDragStart(row.id)"
+          @dragover.prevent="dragOverId = row.id"
+          @drop="onCategoryDrop(row.id)"
+          @dragend="dragOverId = null"
+        >
+          <span class="grip">{{ index + 1 }}</span>
+          <el-input v-if="editingCategoryId === row.id" v-model="editingCategoryName" size="small" />
+          <span v-else class="cat-name">{{ row.name }}</span>
+          <span class="cat-ops">
             <template v-if="editingCategoryId === row.id">
               <el-button link type="primary" @click="onSaveCategory(row.id)">保存</el-button>
               <el-button link @click="editingCategoryId = null">取消</el-button>
@@ -132,9 +196,9 @@
               <el-button link type="primary" @click="startEditCategory(row)">编辑</el-button>
               <el-button link type="danger" @click="onDeleteCategory(row)">删除</el-button>
             </template>
-          </template>
-        </el-table-column>
-      </el-table>
+          </span>
+        </li>
+      </ul>
     </el-dialog>
   </section>
 </template>
@@ -142,12 +206,13 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox, type UploadFile } from 'element-plus'
-import { pactApi, readImageDataUrl, type Dish, type DishCategory } from '@our-pact/shared'
+import { fileFromDataUrl, menuApi, readImageDataUrl, type Dish, type DishCategory } from '@our-pact/shared'
 
 const dishes = ref<Dish[]>([])
 const categories = ref<DishCategory[]>([])
 const loading = ref(false)
 const saving = ref(false)
+const togglingId = ref<number | null>(null)
 const dialogVisible = ref(false)
 const editing = ref<Dish | null>(null)
 const filterCategoryId = ref(0)
@@ -157,6 +222,9 @@ const categorySaving = ref(false)
 const categoryForm = reactive({ name: '' })
 const editingCategoryId = ref<number | null>(null)
 const editingCategoryName = ref('')
+const draggingCategoryId = ref<number | null>(null)
+const dragOverId = ref<number | null>(null)
+const categorySorting = ref(false)
 
 const form = reactive({
   categoryId: 0,
@@ -182,17 +250,14 @@ function categoryName(id: number) {
   return categories.value.find((item) => item.id === id)?.name || '—'
 }
 
-function formatOptions(dish: Dish) {
-  if (!dish.optionGroups.length) return '—'
-  return dish.optionGroups
-    .map((group) => `${group.name}（${group.values.map((v) => v.label).join('/')}）`)
-    .join('；')
+function rowClass({ row }: { row: Dish }) {
+  return row.isActive ? '' : 'row-off'
 }
 
 async function load() {
   loading.value = true
   try {
-    const [dishList, categoryList] = await Promise.all([pactApi.listDishes(), pactApi.listCategories()])
+    const [dishList, categoryList] = await Promise.all([menuApi.listDishes(), menuApi.listCategories()])
     dishes.value = dishList
     categories.value = categoryList
   } catch (error) {
@@ -242,7 +307,7 @@ async function onImageChange(file: UploadFile) {
   const raw = file.raw
   if (!raw) return
   try {
-    form.imageUrl = await readImageDataUrl(raw)
+    form.imageUrl = (await menuApi.uploadDishImage(fileFromDataUrl(await readImageDataUrl(raw), 'dish.jpg'))).url
   } catch (error) {
     ElMessage.warning(error instanceof Error ? error.message : '图片读取失败')
   }
@@ -287,10 +352,10 @@ async function onSave() {
         .filter((group) => group.name && group.values.length > 0),
     }
     if (editing.value) {
-      await pactApi.updateDish(editing.value.id, draft)
+      await menuApi.updateDish(editing.value.id, draft)
       ElMessage.success('菜品已更新')
     } else {
-      await pactApi.createDish(draft)
+      await menuApi.createDish(draft)
       ElMessage.success('菜品已创建')
     }
     dialogVisible.value = false
@@ -302,15 +367,76 @@ async function onSave() {
   }
 }
 
+async function onToggleActive(dish: Dish) {
+  togglingId.value = dish.id
+  try {
+    const updated = await menuApi.updateDish(dish.id, {
+      categoryId: dish.categoryId,
+      name: dish.name,
+      description: dish.description,
+      imageUrl: dish.imageUrl,
+      isActive: !dish.isActive,
+      sortOrder: dish.sortOrder,
+      optionGroups: dish.optionGroups.map((group) => ({
+        id: group.id,
+        name: group.name,
+        values: group.values.map((value) => ({ id: value.id, label: value.label })),
+      })),
+    })
+    const index = dishes.value.findIndex((item) => item.id === dish.id)
+    if (index >= 0) {
+      dishes.value[index] = updated
+    }
+    ElMessage.success(updated.isActive ? '已上架' : '已下架')
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : '操作失败')
+  } finally {
+    togglingId.value = null
+  }
+}
+
 async function onDelete(dish: Dish) {
   try {
     await ElMessageBox.confirm(`删除「${dish.name}」后不可恢复。`, '删除菜品', { type: 'warning' })
-    await pactApi.deleteDish(dish.id)
+    await menuApi.deleteDish(dish.id)
     ElMessage.success('已删除')
     await load()
   } catch (error) {
     if (error === 'cancel') return
     ElMessage.error(error instanceof Error ? error.message : '删除失败')
+  }
+}
+
+function onCategoryDragStart(id: number) {
+  draggingCategoryId.value = id
+}
+
+async function onCategoryDrop(targetId: number) {
+  const fromId = draggingCategoryId.value
+  draggingCategoryId.value = null
+  dragOverId.value = null
+  if (fromId == null || fromId === targetId || categorySorting.value) {
+    return
+  }
+  const next = [...categories.value]
+  const fromIndex = next.findIndex((item) => item.id === fromId)
+  const toIndex = next.findIndex((item) => item.id === targetId)
+  if (fromIndex < 0 || toIndex < 0) {
+    return
+  }
+  const [moved] = next.splice(fromIndex, 1)
+  next.splice(toIndex, 0, moved)
+  const previous = categories.value
+  categories.value = next
+  categorySorting.value = true
+  try {
+    categories.value = await menuApi.sortCategories(next.map((item) => item.id))
+    ElMessage.success('顺序已更新')
+  } catch (error) {
+    categories.value = previous
+    ElMessage.error(error instanceof Error ? error.message : '排序失败')
+  } finally {
+    categorySorting.value = false
   }
 }
 
@@ -323,7 +449,7 @@ function openCategoryDialog() {
 async function onCreateCategory() {
   categorySaving.value = true
   try {
-    await pactApi.createCategory({ name: categoryForm.name })
+    await menuApi.createCategory({ name: categoryForm.name })
     categoryForm.name = ''
     ElMessage.success('分类已添加')
     await load()
@@ -341,7 +467,7 @@ function startEditCategory(row: DishCategory) {
 
 async function onSaveCategory(id: number) {
   try {
-    await pactApi.updateCategory(id, { name: editingCategoryName.value })
+    await menuApi.updateCategory(id, { name: editingCategoryName.value })
     editingCategoryId.value = null
     ElMessage.success('分类已更新')
     await load()
@@ -353,7 +479,7 @@ async function onSaveCategory(id: number) {
 async function onDeleteCategory(row: DishCategory) {
   try {
     await ElMessageBox.confirm(`删除分类「${row.name}」？`, '删除分类', { type: 'warning' })
-    await pactApi.deleteCategory(row.id)
+    await menuApi.deleteCategory(row.id)
     ElMessage.success('已删除')
     if (filterCategoryId.value === row.id) filterCategoryId.value = 0
     await load()
@@ -396,24 +522,258 @@ onMounted(load)
   margin-bottom: 16px;
 }
 
+.dish-form :deep(.el-form-item) {
+  margin-bottom: 14px;
+}
+
+.dish-form :deep(.el-form-item__label) {
+  padding-bottom: 6px;
+  color: #5c564e;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.dish-form :deep(.desc-item) {
+  margin-bottom: 0;
+}
+
+.dish-form :deep(.el-select) {
+  width: 100%;
+}
+
+.basic {
+  display: grid;
+  grid-template-columns: 160px 1fr;
+  gap: 20px;
+  align-items: start;
+}
+
+.photo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.photo-frame {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 160px;
+  height: 200px;
+  overflow: hidden;
+  border: 1.5px dashed #c6d8cd;
+  border-radius: 16px;
+  background: #f4faf6;
+}
+
+.photo-frame.filled {
+  border: 1px solid var(--line);
+  border-style: solid;
+  background: #fff;
+}
+
+.photo-frame img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.photo-initial {
+  color: var(--brand);
+  font-size: 44px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.photo-tip {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.photo-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.field-row {
+  display: grid;
+  grid-template-columns: 1fr 168px;
+  gap: 12px;
+}
+
+.meta {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin: 16px 0;
+}
+
+.meta-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 52px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: #f7f4ee;
+}
+
+.meta-label {
+  flex-shrink: 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.meta-hint {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.options {
+  padding: 14px;
+  border-radius: 14px;
+  background: #f7f4ee;
+}
+
 .option-head {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin: 8px 0;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.option-head p,
+.option-empty {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.option-empty {
+  margin: 10px 0 0;
+  padding: 18px;
+  border-radius: 10px;
+  background: #fff;
+  text-align: center;
+  font-size: 13px;
 }
 
 .option-box {
-  border: 1px dashed #e5e1d8;
-  border-radius: 8px;
-  padding: 12px;
-  margin-bottom: 10px;
+  display: grid;
+  grid-template-columns: 150px 1fr auto;
+  gap: 10px;
+  align-items: end;
+  margin-top: 10px;
+  padding: 10px;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.mini {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  color: #6d6860;
+  font-size: 12px;
 }
 
 .cat-add {
   display: flex;
   gap: 8px;
-  margin-bottom: 16px;
+  margin-bottom: 8px;
+}
+
+.cat-hint {
+  margin: 0 0 10px;
+  color: #8a8680;
+  font-size: 12px;
+}
+
+.cat-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.cat-row {
+  display: grid;
+  grid-template-columns: 28px 1fr auto;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 10px;
+  border: 1px solid #e5e1d8;
+  border-radius: 8px;
+  background: #fff;
+  cursor: grab;
+}
+
+.cat-row.over {
+  border-color: #5b8f7a;
+  background: rgba(91, 143, 122, 0.08);
+}
+
+.grip {
+  color: #8a8680;
+  font-size: 12px;
+  text-align: center;
+}
+
+.cat-name {
+  min-width: 0;
+}
+
+.cat-ops {
+  display: flex;
+  gap: 4px;
+}
+
+.menu-table {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.menu-table :deep(.el-table) {
+  --el-table-header-bg-color: #f6f3ec;
+  --el-table-header-text-color: #6d6860;
+  --el-table-row-hover-bg-color: #f4faf6;
+  --el-table-border-color: transparent;
+  --el-table-bg-color: #fff;
+}
+
+.menu-table :deep(.el-table th.el-table__cell) {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.menu-table :deep(.el-table td.el-table__cell) {
+  padding: 14px 0;
+  border-bottom: 1px solid #f0ece4;
+}
+
+.menu-table :deep(.el-table__inner-wrapper::before) {
+  display: none;
+}
+
+.menu-table :deep(.row-off) {
+  --el-table-tr-bg-color: #faf8f5;
+}
+
+.menu-table :deep(.row-off .dish-title strong),
+.menu-table :deep(.row-off .muted) {
+  color: #8a8680;
 }
 
 .dish-cell {
@@ -422,28 +782,117 @@ onMounted(load)
   align-items: center;
 }
 
-.thumb {
-  width: 48px;
-  height: 48px;
-  object-fit: cover;
-  border-radius: 8px;
-  flex-shrink: 0;
-  background: #f0ebe3;
+.dish-text {
+  min-width: 0;
 }
 
-.image-upload {
+.dish-title {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.preview {
-  display: block;
-  margin-top: 12px;
-  width: 120px;
-  height: 120px;
+.dish-title strong {
+  font-size: 15px;
+}
+
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 18px;
+}
+
+.status::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.status.on {
+  color: #2f7d57;
+  background: #e5f4ec;
+}
+
+.status.off {
+  color: #8a8680;
+  background: #efece6;
+}
+
+.cat-tag {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: #f3efe7;
+  color: #5c564e;
+  font-size: 12px;
+  line-height: 20px;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  max-width: 100%;
+  padding: 3px 8px;
+  border-radius: 8px;
+  background: #f7f4ee;
+  color: var(--ink);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.chip em {
+  color: var(--muted);
+  font-style: normal;
+}
+
+.empty {
+  color: #b7b2aa;
+  font-size: 13px;
+}
+
+.ops {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.thumb {
+  width: 52px;
+  height: 52px;
   object-fit: cover;
   border-radius: 10px;
-  border: 1px solid #e5e1d8;
+  flex-shrink: 0;
+  background: #f0ebe3;
+}
+
+.thumb.placeholder {
+  display: grid;
+  place-items: center;
+  color: var(--brand-dark);
+  background: #e7f0eb;
+  font-weight: 700;
+}
+
+@media (max-width: 760px) {
+  .basic,
+  .field-row,
+  .meta,
+  .option-box {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

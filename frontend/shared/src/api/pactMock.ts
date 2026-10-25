@@ -242,7 +242,24 @@ function buildItems(
   return payloadItems.map((item) => {
     const dish = db.dishes.find((entry) => entry.id === item.dishId && entry.isActive)
     if (!dish) {
-      throw new Error('菜品不可用')
+      if (!item.dishName) {
+        throw new Error('菜品不可用')
+      }
+      return {
+        id: allocId(db),
+        dishId: item.dishId,
+        dishName: item.dishName,
+        note: item.note?.trim() || null,
+        options: (item.options || []).map((selected) => ({
+          id: allocId(db),
+          groupId: selected.groupId,
+          valueId: selected.valueId,
+          groupName: selected.groupName || '特殊项',
+          optionLabel: selected.optionLabel || '已选',
+        })),
+        addedByUserId: user.id,
+        addedByUserName: user.name,
+      }
     }
     const options = (item.options || [])
       .map((selected) => {

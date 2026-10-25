@@ -1,6 +1,7 @@
 export { http, request } from './request'
 export { fetchCurrentUser, login, logout, updateProfile, uploadAvatar } from './api/auth'
 export { pactApi } from './api/pactMock'
+export { fileFromDataUrl, menuApi } from './api/menu'
 export {
   AVATAR_MAX_BYTES,
   PHONE_PATTERN,
