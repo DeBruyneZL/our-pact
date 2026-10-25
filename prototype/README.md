@@ -5,8 +5,8 @@
 **正式页面已迁到：**
 
 - 管理端：`frontend/web`（Element Plus）
-- 移动端：`frontend/h5`（Vant）
-- 共享 mock / 类型：`frontend/shared`
+- 小程序：`frontend/mp`（uni-app）
+- 共享类型与请求：`frontend/shared`
 
 请优先使用：
 
@@ -14,5 +14,5 @@
 cd frontend
 pnpm install
 pnpm dev:web
-pnpm dev:h5
+pnpm dev:mp
 ```

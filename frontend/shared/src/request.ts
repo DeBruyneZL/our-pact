@@ -3,7 +3,7 @@ import type { ApiResult } from './types'
 import { goLogin } from './utils/portal'
 import { clearToken, getToken } from './utils/token'
 
-/** web 与 h5 共用的 axios 实例，开发时由 Vite 把 /api 转到 8080。 */
+/** Web 管理端的 axios 实例，开发时由 Vite 把 /api 转到 8080。 */
 export const request = axios.create({
   baseURL: '/api',
   timeout: 15000,

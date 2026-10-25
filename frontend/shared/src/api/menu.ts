@@ -5,7 +5,7 @@ export interface DishImageResult {
   url: string
 }
 
-/** 菜单与分类。数据在服务端，管理端和用户端共用。 */
+/** 菜单与分类。数据在服务端，管理端和小程序共用。 */
 export const menuApi = {
   listCategories(): Promise<DishCategory[]> {
     return http.get('/menu/categories')

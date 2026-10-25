@@ -3,7 +3,7 @@
     <aside class="sidebar">
       <div class="brand">
         <BrandLogo size="md" />
-        <p class="sub">超级管理端</p>
+        <p class="sub">管理端</p>
       </div>
       <nav class="menu">
         <RouterLink :class="{ active: route.name === 'dishes' }" :to="{ name: 'dishes' }">菜单维护</RouterLink>
@@ -20,7 +20,6 @@
           <template #dropdown>
             <el-dropdown-menu>
               <el-dropdown-item command="profile">个人中心</el-dropdown-item>
-              <el-dropdown-item command="h5">切换到用户端</el-dropdown-item>
               <el-dropdown-item command="logout" divided>退出登录</el-dropdown-item>
             </el-dropdown-menu>
           </template>
@@ -39,7 +38,6 @@
 import { computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessageBox } from 'element-plus'
-import { goH5 } from '@our-pact/shared'
 import { useAuthStore } from '@/stores/auth'
 import BrandLogo from '@/components/BrandLogo.vue'
 
@@ -56,10 +54,6 @@ onMounted(() => {
 function onCommand(command: string) {
   if (command === 'profile') {
     void router.push({ name: 'profile' })
-    return
-  }
-  if (command === 'h5') {
-    goH5(auth.token)
     return
   }
   if (command === 'logout') {

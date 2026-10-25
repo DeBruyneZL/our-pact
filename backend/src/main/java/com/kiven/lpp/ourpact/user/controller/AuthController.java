@@ -7,8 +7,10 @@ import com.kiven.lpp.ourpact.user.dto.LoginRequest;
 import com.kiven.lpp.ourpact.user.dto.LoginResponse;
 import com.kiven.lpp.ourpact.user.dto.ProfileUpdateRequest;
 import com.kiven.lpp.ourpact.user.dto.UserProfileResponse;
+import com.kiven.lpp.ourpact.user.dto.WxAppLoginRequest;
 import com.kiven.lpp.ourpact.user.entity.User;
 import com.kiven.lpp.ourpact.user.service.UserService;
+import com.kiven.lpp.ourpact.user.service.WxAppClient;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -29,8 +31,11 @@ public class AuthController {
 
     private final UserService userService;
 
-    public AuthController(UserService userService) {
+    private final WxAppClient wxAppClient;
+
+    public AuthController(UserService userService, WxAppClient wxAppClient) {
         this.userService = userService;
+        this.wxAppClient = wxAppClient;
     }
 
     /**
@@ -39,6 +44,23 @@ public class AuthController {
     @PostMapping("/login")
     public Result<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
         User user = userService.authenticate(request.getAccount(), request.getPassword());
+        return Result.success(issueToken(user));
+    }
+
+    /**
+     * 小程序静默登录：wx.login 的 code 换 openid，未注册自动开户。
+     */
+    @PostMapping("/wxapp")
+    public Result<LoginResponse> wxappLogin(@Valid @RequestBody WxAppLoginRequest request) {
+        String openid = wxAppClient.getOpenid(request.getCode());
+        User user = userService.loginByWxApp(openid);
+        return Result.success(issueToken(user));
+    }
+
+    /**
+     * 签发 Sa-Token 并组装登录返回。
+     */
+    private LoginResponse issueToken(User user) {
         StpUtil.login(user.getId());
         UserProfileResponse profile = userService.toProfile(user);
 
@@ -50,7 +72,7 @@ public class AuthController {
         response.setPhone(profile.getPhone());
         response.setAvatar(profile.getAvatar());
         response.setSuperAdmin(profile.getSuperAdmin());
-        return Result.success(response);
+        return response;
     }
 
     /**

@@ -9,9 +9,9 @@
   },
   "scripts": {
     "dev:web": "npm --prefix web run dev",
-    "dev:h5": "npm --prefix h5 run dev",
+    "dev:mp": "npm --prefix mp run dev:mp-weixin",
     "build:web": "npm --prefix web run build",
-    "build:h5": "npm --prefix h5 run build",
-    "build": "npm --prefix web run build && npm --prefix h5 run build"
+    "build:mp": "npm --prefix mp run build:mp-weixin",
+    "build": "npm --prefix web run build"
   }
 }

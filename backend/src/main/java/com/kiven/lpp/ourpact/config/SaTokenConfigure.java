@@ -8,7 +8,7 @@ import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 /**
- * Sa-Token 路由拦截：除登录和头像读取外，/api 下的请求都要先登录。
+ * Sa-Token 路由拦截：除登录、小程序登录和头像读取外，/api 下的请求都要先登录。
  *
  * @author zhangliang
  */
@@ -18,7 +18,7 @@ public class SaTokenConfigure implements WebMvcConfigurer {
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(new SaInterceptor(handle -> SaRouter.match("/api/**")
-                        .notMatch("/api/auth/login", "/api/files/avatars/**", "/api/files/dishes/**")
+                        .notMatch("/api/auth/login", "/api/auth/wxapp", "/api/files/avatars/**", "/api/files/dishes/**")
                         .check(r -> StpUtil.checkLogin())))
                 .addPathPatterns("/**");
     }

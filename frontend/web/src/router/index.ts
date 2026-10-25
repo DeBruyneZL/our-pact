@@ -1,8 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import { consumeHandoffToken, getToken, goH5 } from '@our-pact/shared'
+import { consumeHandoffToken, getToken } from '@our-pact/shared'
 import AppLayout from '@/layouts/AppLayout.vue'
 import LoginView from '@/views/LoginView.vue'
-import PortalView from '@/views/PortalView.vue'
 import DishesView from '@/views/dishes/DishesView.vue'
 import ActivitiesView from '@/views/activities/ActivitiesView.vue'
 import UsersView from '@/views/users/UsersView.vue'
@@ -13,7 +12,6 @@ const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     { path: '/login', name: 'login', component: LoginView, meta: { public: true } },
-    { path: '/portal', name: 'portal', component: PortalView, meta: { portal: true } },
     {
       path: '/',
       component: AppLayout,
@@ -42,11 +40,11 @@ router.beforeEach(async (to) => {
     }
     try {
       await auth.ensureProfile()
-      if (auth.isSuperAdmin) {
-        return { name: 'portal' }
+      if (!auth.isSuperAdmin) {
+        await auth.logout()
+        return true
       }
-      goH5(auth.token)
-      return false
+      return { name: 'dishes' }
     } catch {
       await auth.logout()
       return true
@@ -64,19 +62,9 @@ router.beforeEach(async (to) => {
     return { name: 'login' }
   }
 
-  if (to.meta.portal) {
-    if (!auth.isSuperAdmin) {
-      goH5(auth.token)
-      return false
-    }
-    return true
-  }
-
-  if (to.meta.admin || to.matched.some((record) => record.meta.admin)) {
-    if (!auth.isSuperAdmin) {
-      goH5(auth.token)
-      return false
-    }
+  if (!auth.isSuperAdmin) {
+    await auth.logout()
+    return { name: 'login', query: { denied: '1' } }
   }
 
   return true

@@ -1,17 +1,17 @@
 ---
 description: 前端规范（shared 请求、页面拆分、枚举、状态）
-globs: frontend/{web,h5,shared}/src/**/*.{vue,ts}
+globs: frontend/{web,shared}/src/**/*.{vue,ts}
 alwaysApply: false
 ---
 
 # 前端
 
-Vue 3 + TypeScript + Vite + Pinia + Vue Router。Web 用 Element Plus，H5 用 Vant，不要混用。接口和类型放 `frontend/shared`。
+Vue 3 + TypeScript + Vite + Pinia + Vue Router。Web 管理端用 Element Plus。接口和类型放 `frontend/shared`。小程序在 `frontend/mp`，用 uni-app，不引入 Element Plus。
 
 ## 目录
 
 - `shared/src/api/`：接口函数。`shared/src/types/`：请求和响应类型。`shared/src/utils/`：纯函数与令牌。
-- `web/src`、`h5/src`：`views/`、`components/`、`router/`、`stores/`。路由就在各自的 `router/`，可以修改。
+- `web/src`：`views/`、`components/`、`router/`、`stores/`。路由就在 `router/`，可以修改。
 
 ```typescript
 export function pageUsers(query: UserQuery): Promise<PageResult<UserProfile>> {

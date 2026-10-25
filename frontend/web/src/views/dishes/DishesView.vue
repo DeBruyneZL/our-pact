@@ -3,7 +3,7 @@
     <div class="head">
       <div>
         <h2>菜单维护</h2>
-        <p>管理分类与菜品，两端菜单按分类同步展示。</p>
+        <p>管理分类与菜品，小程序按这里的分类展示。</p>
       </div>
       <div class="head-actions">
         <el-button @click="openCategoryDialog">分类管理</el-button>
@@ -49,7 +49,7 @@
             <div v-if="row.optionGroups.length" class="chips">
               <span v-for="group in row.optionGroups" :key="group.id" class="chip">
                 {{ group.name }}
-                <em>{{ group.values.map((value) => value.label).join(' / ') }}</em>
+                <em>{{ optionSummary(group) }}</em>
               </span>
             </div>
             <span v-else class="empty">无</span>
@@ -134,7 +134,7 @@
           <div class="meta-card">
             <span class="meta-label">上架</span>
             <el-switch v-model="form.isActive" />
-            <span class="meta-hint">{{ form.isActive ? '用户端可见' : '用户端隐藏' }}</span>
+            <span class="meta-hint">{{ form.isActive ? '小程序可见' : '小程序隐藏' }}</span>
           </div>
         </div>
 
@@ -206,7 +206,14 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox, type UploadFile } from 'element-plus'
-import { fileFromDataUrl, menuApi, readImageDataUrl, type Dish, type DishCategory } from '@our-pact/shared'
+import {
+  fileFromDataUrl,
+  menuApi,
+  readImageDataUrl,
+  type Dish,
+  type DishCategory,
+  type DishOptionGroup,
+} from '@our-pact/shared'
 
 const dishes = ref<Dish[]>([])
 const categories = ref<DishCategory[]>([])
@@ -216,6 +223,10 @@ const togglingId = ref<number | null>(null)
 const dialogVisible = ref(false)
 const editing = ref<Dish | null>(null)
 const filterCategoryId = ref(0)
+
+function optionSummary(group: DishOptionGroup) {
+  return group.values.map((value) => value.label).join(' / ')
+}
 
 const categoryDialogVisible = ref(false)
 const categorySaving = ref(false)

@@ -16,6 +16,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.UUID;
+
 /**
  * 用户登录与个人资料。
  *
@@ -61,6 +63,32 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     }
 
     @Override
+    @Transactional(rollbackFor = Throwable.class)
+    public User loginByWxApp(String openid) {
+        User existing = findByOpenid(openid);
+        if (existing != null) {
+            return existing;
+        }
+        User created = new User();
+        created.setWxOpenid(openid);
+        created.setUsername("wx_" + openid);
+        created.setNickname("微信用户");
+        // 随机口令，只允许走小程序入口
+        created.setPassword(passwordEncoder.encode(UUID.randomUUID().toString()));
+        try {
+            save(created);
+            return created;
+        } catch (DuplicateKeyException exception) {
+            // 并发下重复注册，回查已有账号
+            User concurrent = findByOpenid(openid);
+            if (concurrent == null) {
+                throw exception;
+            }
+            return concurrent;
+        }
+    }
+
+    @Override
     public UserProfileResponse toProfile(User user) {
         UserProfileResponse response = new UserProfileResponse();
         response.setId(user.getId());
@@ -77,10 +105,13 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     @Transactional(rollbackFor = Throwable.class)
     public UserProfileResponse updateProfile(Long userId, ProfileUpdateRequest request) {
         requireUser(userId);
-        String phone = request.getPhone().trim();
-        User occupied = findByPhone(phone);
-        if (occupied != null && !occupied.getId().equals(userId)) {
-            throw new BusinessException("手机号已被使用");
+        String rawPhone = request.getPhone() == null ? "" : request.getPhone().trim();
+        String phone = rawPhone.isEmpty() ? null : rawPhone;
+        if (phone != null) {
+            User occupied = findByPhone(phone);
+            if (occupied != null && !occupied.getId().equals(userId)) {
+                throw new BusinessException("手机号已被使用");
+            }
         }
         String nickname = request.getNickname().trim();
         try {
@@ -150,6 +181,10 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
     private User findByPhone(String phone) {
         return getOne(Wrappers.<User>lambdaQuery().eq(User::getPhone, phone), false);
+    }
+
+    private User findByOpenid(String openid) {
+        return getOne(Wrappers.<User>lambdaQuery().eq(User::getWxOpenid, openid), false);
     }
 
     private User requireUser(Long userId) {

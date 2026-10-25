@@ -27,6 +27,14 @@ public interface UserService extends IService<User> {
     User authenticate(String account, String password);
 
     /**
+     * 小程序 openid 静默登录。没有绑定记录时自动注册。
+     *
+     * @param openid 微信小程序 openid
+     * @return 登录用户
+     */
+    User loginByWxApp(String openid);
+
+    /**
      * 组装对外资料，头像换成可访问路径。
      */
     UserProfileResponse toProfile(User user);

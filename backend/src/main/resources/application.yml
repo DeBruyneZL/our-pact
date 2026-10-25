@@ -42,7 +42,11 @@ app:
   dish:
     dir: ${DISH_IMAGE_DIR:${user.home}/our-pact/dishes}
   cors:
-    allowed-origins: ${CORS_ORIGINS:http://localhost:3000,http://localhost:3001}
+    allowed-origins: ${CORS_ORIGINS:http://localhost:3000}
+  # 微信小程序登录凭证，mp.weixin.qq.com「开发管理-开发设置」里获取
+  wxapp:
+    app-id: ${WX_APP_ID:}
+    app-secret: ${WX_APP_SECRET:}
 
 # 令牌放在请求头 Authorization，前端登录后原样回传
 sa-token:

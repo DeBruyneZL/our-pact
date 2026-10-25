@@ -25,6 +25,9 @@ public class User extends BaseEntity {
 
     private String avatar;
 
+    /** 微信小程序 openid，静默登录用 */
+    private String wxOpenid;
+
     /** 取值见 {@link com.kiven.lpp.ourpact.common.YesNo} */
     private Integer superAdmin;
 }

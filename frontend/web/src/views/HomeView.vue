@@ -2,7 +2,7 @@
   <div class="home">
     <section class="welcome">
       <div>
-        <p class="eyebrow">超级管理端</p>
+        <p class="eyebrow">管理端</p>
         <h2>{{ auth.displayName }}，你好</h2>
         <p class="desc">工作台只展示账号摘要。资料修改请进入个人中心。</p>
       </div>
@@ -22,7 +22,7 @@
         <span>只读摘要</span>
       </div>
       <ul>
-        <li>管理端仅超级管理员可进入，普通用户请使用用户端。</li>
+        <li>管理端仅超级管理员可进入，点菜请使用小程序。</li>
         <li>昵称、手机号、头像在个人中心编辑；用户名与权限不可改。</li>
         <li>手机号唯一，修改后可用于登录。</li>
       </ul>

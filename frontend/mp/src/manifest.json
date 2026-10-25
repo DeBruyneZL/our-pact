@@ -1,0 +1,18 @@
+{
+  "name": "我们的约定",
+  "appid": "",
+  "description": "点菜与约饭小程序",
+  "versionName": "1.0.0",
+  "versionCode": "100",
+  "vueVersion": "3",
+  "mp-weixin": {
+    "appid": "wx4ce2c0c0c2937ebd",
+    "setting": {
+      "urlCheck": false,
+      "es6": true,
+      "postcss": true,
+      "minified": true
+    },
+    "usingComponents": true
+  }
+}

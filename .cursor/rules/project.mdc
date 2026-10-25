@@ -9,5 +9,5 @@ alwaysApply: true
 - 表结构只放 `backend/src/main/resources/db/migration/`，命名 `V<版本>__描述.sql`。已执行过的脚本不要改。
 - 只保留 `backend/src/main/resources/application.yml`。库地址用环境变量 `MYSQL_HOST`、`MYSQL_PORT`。
 - 禁止引入 Redis、MapStruct，禁止多环境配置、CI、Git hooks。
-- 前端请求、类型、工具放 `frontend/shared`，web 与 h5 从这里导入。
+- 前端由 Web 管理端 `frontend/web` 和小程序 `frontend/mp` 组成。请求、类型、工具放 `frontend/shared`，Web 从这里导入，小程序复用其中的类型和纯函数。
 - 不新增说明文档。代码只加必要中文注释。

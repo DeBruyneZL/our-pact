@@ -28,15 +28,15 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { onMounted, reactive, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import type { FormInstance, FormRules } from 'element-plus'
 import { ElMessage } from 'element-plus'
-import { goH5 } from '@our-pact/shared'
 import { useAuthStore } from '@/stores/auth'
 import BrandLogo from '@/components/BrandLogo.vue'
 
 const router = useRouter()
+const route = useRoute()
 const auth = useAuthStore()
 const formRef = ref<FormInstance>()
 const loading = ref(false)
@@ -49,6 +49,14 @@ const rules: FormRules = {
   password: [{ required: true, message: '请填写密码', trigger: 'blur' }],
 }
 
+const adminOnlyMessage = '管理端仅超级管理员可登录，点菜请使用小程序'
+
+onMounted(() => {
+  if (route.query.denied === '1') {
+    ElMessage.error(adminOnlyMessage)
+  }
+})
+
 async function onSubmit() {
   const valid = await formRef.value?.validate().catch(() => false)
   if (!valid) {
@@ -57,11 +65,12 @@ async function onSubmit() {
   loading.value = true
   try {
     await auth.login(form.account.trim(), form.password)
-    if (auth.isSuperAdmin) {
-      await router.push({ name: 'portal' })
+    if (!auth.isSuperAdmin) {
+      await auth.logout()
+      ElMessage.error(adminOnlyMessage)
       return
     }
-    goH5(auth.token)
+    await router.push({ name: 'dishes' })
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : '登录失败')
   } finally {

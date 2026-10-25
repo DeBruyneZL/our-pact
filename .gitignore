@@ -5,8 +5,8 @@ backend/target/
 frontend/node_modules/
 frontend/web/node_modules/
 frontend/web/dist/
-frontend/h5/node_modules/
-frontend/h5/dist/
+frontend/mp/node_modules/
+frontend/mp/dist/
 frontend/shared/node_modules/
 
 # IDE
