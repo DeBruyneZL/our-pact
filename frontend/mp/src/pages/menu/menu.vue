@@ -4,8 +4,13 @@
     <view v-else-if="loadError" class="center">{{ loadError }}</view>
     <view v-else-if="!categories.length" class="center">暂无分类，等管理员配置</view>
 
-    <view v-else class="menu-tree">
-      <scroll-view scroll-y class="cat-side">
+    <view v-else class="menu-wrap">
+    <view v-if="pendingActivity" class="adding-bar">
+      <text>给「{{ addingTitle }}」加菜</text>
+      <text class="adding-back" @tap="backToActivity">返回活动</text>
+    </view>
+    <view class="menu-tree">
+      <scroll-view scroll-y class="cat-side" :style="paneStyle">
         <view
           v-for="cat in categories"
           :key="cat.id"
@@ -17,27 +22,42 @@
         </view>
       </scroll-view>
 
-      <scroll-view scroll-y class="dish-pane">
+      <scroll-view scroll-y class="dish-pane" :style="paneStyle">
         <view v-if="!filteredDishes.length" class="center small">这个分类还没有菜</view>
         <view
           v-for="dish in filteredDishes"
           :key="dish.id"
           class="dish-card"
-          :class="{ selected: Boolean(selected[dish.id]) }"
-          @tap="toggleDish(dish)"
+          :class="{
+            selected: !pendingActivity && Boolean(selected[dish.id]),
+            added: Boolean(pendingActivity) && isAdded(dish.id),
+            adding: Boolean(pendingActivity),
+          }"
+          @tap="onDishTap(dish)"
         >
           <view class="cover-wrap">
             <image
-              v-if="dish.imageUrl"
+              v-if="dish.imageUrl && !failedCovers[dish.id]"
               :src="absoluteUrl(dish.imageUrl)"
               mode="aspectFill"
               class="cover"
+              @error="onCoverError(dish.id)"
             />
             <view v-else class="cover cover-placeholder">暂无封面</view>
           </view>
-          <view class="dish-body">
-            <text class="dish-name">{{ dish.name }}</text>
-            <text class="dish-desc">{{ dish.description || '家常味道' }}</text>
+          <view class="dish-info">
+            <view class="dish-body">
+              <text class="dish-name">{{ dish.name }}</text>
+              <text class="dish-desc">{{ dish.description || '家常味道' }}</text>
+            </view>
+            <view
+              v-if="pendingActivity"
+              class="plus"
+              :class="{ done: isAdded(dish.id) }"
+              @tap.stop="onPlus(dish)"
+            >
+              {{ plusLabel(dish.id) }}
+            </view>
           </view>
 
           <view v-if="selected[dish.id]" class="options" @tap.stop>
@@ -72,8 +92,9 @@
         </view>
       </scroll-view>
     </view>
+    </view>
 
-    <view v-if="selectedCount > 0" class="cart-bar">
+    <view v-if="!pendingActivity && selectedCount > 0" class="cart-bar">
       <text>已选 {{ selectedCount }} 道</text>
       <button class="cart-btn" size="mini" @tap="showList = true">看清单</button>
     </view>
@@ -91,7 +112,24 @@
           </view>
           <view v-if="!selectedList.length" class="center small">还没有选菜</view>
         </scroll-view>
-        <button class="cart-btn" @tap="showList = false">继续挑</button>
+        <template v-if="pendingActivity">
+          <text class="sheet-note">加到「{{ addingTitle }}」。只能加菜，不能改别人的内容。</text>
+          <button class="cart-btn sheet-btn" :disabled="submitting" @tap="onAddToActivity">加到活动</button>
+          <button class="text-btn" @tap="clearPending">取消加菜</button>
+        </template>
+        <template v-else>
+          <input v-model="activityName" class="field" placeholder="活动名称" placeholder-class="note-placeholder" />
+          <picker mode="date" :value="activityDate" @change="onDateChange">
+            <view class="field">{{ activityDate || '选择日期' }}</view>
+          </picker>
+          <picker mode="time" :value="activityTime" @change="onTimeChange">
+            <view class="field">{{ activityTime || '选择时间' }}</view>
+          </picker>
+          <input v-model="activityLocation" class="field" placeholder="地点" placeholder-class="note-placeholder" />
+          <input v-model="activityPeople" class="field" type="number" placeholder="几个人，自己来填 1" placeholder-class="note-placeholder" />
+          <button class="cart-btn sheet-btn" :disabled="submitting" @tap="onCreate">发起活动</button>
+        </template>
+        <button class="text-btn" @tap="showList = false">继续挑</button>
       </view>
     </view>
   </view>
@@ -101,6 +139,7 @@
 import { onShow } from '@dcloudio/uni-app'
 import { computed, reactive, ref } from 'vue'
 import type { Dish, DishCategory } from '@our-pact/shared'
+import { addActivityItems, createActivity, getActivity } from '@/api/activity'
 import { listCategories, listDishes } from '@/api/menu'
 import { absoluteUrl } from '@/config'
 import { useAuthStore } from '@/stores/auth'
@@ -124,7 +163,21 @@ const activeCategoryId = ref(0)
 const loading = ref(false)
 const loadError = ref('')
 const showList = ref(false)
+const submitting = ref(false)
+const activityName = ref('')
+const activityDate = ref('')
+const activityTime = ref('18:00')
+const activityLocation = ref('')
+const activityPeople = ref('1')
+const pendingActivity = ref<{ id: number; title: string } | null>(null)
+const addedDishIds = ref<number[]>([])
+const addingDishId = ref(0)
+const failedCovers = reactive<Record<number, boolean>>({})
+const paneHeight = ref(600)
 const selected = reactive<Record<number, Selection>>({})
+const PENDING_KEY = 'our-pact.pending-activity'
+const addingTitle = computed(() => pendingActivity.value?.title || '活动')
+const paneStyle = computed(() => ({ height: `${paneHeight.value}px` }))
 
 const selectedCount = computed(() => Object.keys(selected).length)
 const filteredDishes = computed(() =>
@@ -173,7 +226,34 @@ async function load() {
     loadError.value = error instanceof Error ? error.message : '加载菜单失败'
   } finally {
     loading.value = false
+    updatePaneHeight()
   }
+}
+
+function updatePaneHeight() {
+  const windowHeight = uni.getSystemInfoSync().windowHeight
+  const banner = pendingActivity.value ? 42 : 0
+  paneHeight.value = Math.max(windowHeight - banner, 200)
+}
+
+function onCoverError(dishId: number) {
+  failedCovers[dishId] = true
+}
+
+function isAdded(dishId: number) {
+  return addedDishIds.value.includes(dishId)
+}
+
+function plusLabel(dishId: number) {
+  // 用符号：未加 +，已加 ✓
+  return isAdded(dishId) ? String.fromCharCode(0x2713) : '+'
+}
+
+function onDishTap(dish: Dish) {
+  if (pendingActivity.value) {
+    return
+  }
+  toggleDish(dish)
 }
 
 function toggleDish(dish: Dish) {
@@ -202,8 +282,176 @@ function removeDish(dishId: number) {
   }
 }
 
+function onDateChange(event: { detail: { value: string } }) {
+  activityDate.value = event.detail.value
+}
+
+function onTimeChange(event: { detail: { value: string } }) {
+  activityTime.value = event.detail.value
+}
+
+function storedTitle(value: { title?: unknown; name?: unknown }) {
+  if (typeof value.title === 'string' && value.title) {
+    return value.title
+  }
+  if (typeof value.name === 'string' && value.name) {
+    return value.name
+  }
+  return ''
+}
+
+function readPending() {
+  const value = uni.getStorageSync(PENDING_KEY) as { id?: number; title?: string; name?: string } | ''
+  if (!value || typeof value !== 'object' || !value.id) {
+    pendingActivity.value = null
+    addedDishIds.value = []
+    return
+  }
+  pendingActivity.value = { id: Number(value.id), title: storedTitle(value) }
+}
+
+async function loadAdded() {
+  const pending = pendingActivity.value
+  if (!pending) {
+    addedDishIds.value = []
+    return
+  }
+  try {
+    const activity = await getActivity(pending.id)
+    pendingActivity.value = { id: pending.id, title: activity.name || pending.title }
+    addedDishIds.value = activity.items
+      .map((item) => item.dishId)
+      .filter((dishId): dishId is number => dishId != null)
+  } catch (error) {
+    uni.showToast({ title: error instanceof Error ? error.message : '活动加载失败', icon: 'none' })
+  }
+}
+
+async function onPlus(dish: Dish) {
+  if (!pendingActivity.value || addingDishId.value) {
+    return
+  }
+  if (isAdded(dish.id)) {
+    uni.showToast({ title: '这道菜已经加过了', icon: 'none' })
+    return
+  }
+  addingDishId.value = dish.id
+  try {
+    await auth.ensureLogin()
+    const activity = await addActivityItems(pendingActivity.value.id, [{ dishId: dish.id }])
+    addedDishIds.value = activity.items
+      .map((item) => item.dishId)
+      .filter((dishId): dishId is number => dishId != null)
+    uni.showToast({ title: '已加上', icon: 'success' })
+  } catch (error) {
+    uni.showToast({ title: error instanceof Error ? error.message : '加菜失败', icon: 'none' })
+  } finally {
+    addingDishId.value = 0
+  }
+}
+
+function backToActivity() {
+  const id = pendingActivity.value?.id
+  clearPending()
+  if (!id) {
+    return
+  }
+  uni.navigateTo({ url: `/pages/activity/detail?id=${id}` })
+}
+
+function clearPending() {
+  uni.removeStorageSync(PENDING_KEY)
+  pendingActivity.value = null
+}
+
+function todayText() {
+  const date = new Date()
+  const pad = (value: number) => String(value).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
+}
+
+function buildItems() {
+  return Object.values(selected).map((item) => ({
+    dishId: item.dishId,
+    note: item.note.trim(),
+    options: Object.entries(item.options)
+      .filter((entry): entry is [string, number] => entry[1] != null)
+      .map(([groupId, valueId]) => ({ groupId: Number(groupId), valueId })),
+  }))
+}
+
+function clearSelection() {
+  for (const key of Object.keys(selected)) {
+    delete selected[Number(key)]
+  }
+  showList.value = false
+}
+
+function readPeopleCount(value: string) {
+  const count = Number(value)
+  if (!Number.isInteger(count) || count < 1 || count > 20) {
+    throw new Error('人数请填 1 到 20')
+  }
+  return count
+}
+
+async function onCreate() {
+  if (submitting.value) {
+    return
+  }
+  if (!activityName.value.trim() || !activityDate.value || !activityTime.value || !activityLocation.value.trim()) {
+    uni.showToast({ title: '请填写名称、时间和地点', icon: 'none' })
+    return
+  }
+  submitting.value = true
+  try {
+    await auth.ensureLogin()
+    const created = await createActivity({
+      name: activityName.value.trim(),
+      scheduledAt: `${activityDate.value}T${activityTime.value}:00`,
+      location: activityLocation.value.trim(),
+      peopleCount: readPeopleCount(activityPeople.value),
+      items: buildItems(),
+    })
+    clearSelection()
+    activityName.value = ''
+    activityLocation.value = ''
+    activityPeople.value = '1'
+    uni.navigateTo({ url: `/pages/activity/detail?id=${created.id}` })
+  } catch (error) {
+    uni.showToast({ title: error instanceof Error ? error.message : '发起失败', icon: 'none' })
+  } finally {
+    submitting.value = false
+  }
+}
+
+async function onAddToActivity() {
+  if (!pendingActivity.value || submitting.value) {
+    return
+  }
+  submitting.value = true
+  try {
+    await auth.ensureLogin()
+    const id = pendingActivity.value.id
+    await addActivityItems(id, buildItems())
+    clearPending()
+    clearSelection()
+    uni.navigateTo({ url: `/pages/activity/detail?id=${id}` })
+  } catch (error) {
+    uni.showToast({ title: error instanceof Error ? error.message : '加菜失败', icon: 'none' })
+  } finally {
+    submitting.value = false
+  }
+}
+
 onShow(() => {
+  readPending()
+  updatePaneHeight()
+  if (!activityDate.value) {
+    activityDate.value = todayText()
+  }
   void load()
+  void loadAdded()
 })
 </script>
 
@@ -227,16 +475,45 @@ onShow(() => {
   font-size: 13px;
 }
 
-.menu-tree {
+.menu-wrap {
   flex: 1;
+  height: 0;
   min-height: 0;
   display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.adding-bar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  height: 42px;
+  padding: 0 14px;
+  box-sizing: border-box;
+  background: #e6f0eb;
+  color: #3d6f5c;
+  font-size: 13px;
+}
+
+.adding-back {
+  flex-shrink: 0;
+  font-weight: 700;
+}
+
+.menu-tree {
+  flex: 1;
+  height: 0;
+  min-height: 0;
+  display: flex;
+  overflow: hidden;
 }
 
 .cat-side {
   width: 88px;
   flex-shrink: 0;
-  height: 100%;
   background: #efeae2;
   border-right: 1px solid #e5e1d8;
 }
@@ -270,17 +547,51 @@ onShow(() => {
 .dish-pane {
   flex: 1;
   min-width: 0;
-  height: 100%;
   padding: 10px 10px 72px;
   box-sizing: border-box;
 }
 
 .dish-card {
+  position: relative;
   background: #fffcf7;
   border: 1px solid #e5e1d8;
   border-radius: 14px;
   margin-bottom: 12px;
   overflow: hidden;
+}
+
+.dish-card.added {
+  border-color: #5b8f7a;
+  background: #f3f8f5;
+}
+
+.dish-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px 12px;
+}
+
+.plus {
+  position: relative;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #5b8f7a;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1;
+  box-sizing: border-box;
+}
+
+.plus.done {
+  background: #8aa89a;
+  font-size: 18px;
 }
 
 .dish-card.selected {
@@ -310,18 +621,21 @@ onShow(() => {
 }
 
 .dish-body {
-  padding: 10px 12px 12px;
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
 }
 
 .dish-name {
+  display: block;
   font-size: 16px;
   font-weight: 600;
   margin-bottom: 4px;
 }
 
 .dish-desc {
+  display: block;
   color: #5c5852;
   font-size: 13px;
   line-height: 1.45;
@@ -462,5 +776,24 @@ onShow(() => {
   color: #b0654a;
   font-size: 13px;
   flex-shrink: 0;
+}
+
+.field {
+  margin-top: 8px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #f7f5f0;
+  font-size: 14px;
+}
+
+.sheet-btn {
+  margin-top: 12px;
+}
+
+.text-btn {
+  margin-top: 8px;
+  background: transparent;
+  color: #5c5852;
+  font-size: 13px;
 }
 </style>

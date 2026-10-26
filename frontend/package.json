@@ -5,6 +5,13 @@
   "pnpm": {
     "overrides": {
       "vue-router": "4.5.1"
+    },
+    "packageExtensions": {
+      "@dcloudio/uni-mp-vite": {
+        "dependencies": {
+          "estree-walker": "2.0.2"
+        }
+      }
     }
   },
   "scripts": {

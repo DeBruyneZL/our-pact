@@ -1,7 +1,9 @@
 package com.kiven.lpp.ourpact.user.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.kiven.lpp.ourpact.common.PageResult;
 import com.kiven.lpp.ourpact.user.dto.ProfileUpdateRequest;
+import com.kiven.lpp.ourpact.user.dto.UserPageQuery;
 import com.kiven.lpp.ourpact.user.dto.UserProfileResponse;
 import com.kiven.lpp.ourpact.user.entity.User;
 import org.springframework.web.multipart.MultipartFile;
@@ -33,6 +35,11 @@ public interface UserService extends IService<User> {
      * @return 登录用户
      */
     User loginByWxApp(String openid);
+
+    /**
+     * 管理端分页。仅超级管理员可查，不返回密码和 openid。
+     */
+    PageResult<UserProfileResponse> page(UserPageQuery query);
 
     /**
      * 组装对外资料，头像换成可访问路径。

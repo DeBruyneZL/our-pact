@@ -3,37 +3,109 @@
     <div class="head">
       <div>
         <h2>用户列表</h2>
-        <p>约饭昵称列表（活动分享用的本地昵称）。登录账号在个人中心管理。</p>
+        <p>登录用户，包含账号注册和小程序静默登录。</p>
       </div>
     </div>
 
+    <div class="toolbar">
+      <el-input
+        v-model="keyword"
+        clearable
+        placeholder="用户名、昵称或手机号"
+        @keyup.enter="onSearch"
+        @clear="onSearch"
+      />
+      <el-button type="primary" @click="onSearch">查询</el-button>
+    </div>
+
     <el-table :data="users" v-loading="loading" stripe>
-      <el-table-column prop="name" label="账号名" min-width="160" />
-      <el-table-column label="创建时间" min-width="180">
-        <template #default="{ row }">{{ formatDateTime(row.createdAt) }}</template>
+      <el-table-column label="用户" min-width="220">
+        <template #default="{ row }">
+          <div class="user-cell">
+            <el-avatar :size="36" :src="row.avatar || undefined">{{ initial(row) }}</el-avatar>
+            <div>
+              <strong>{{ row.nickname || '未设置昵称' }}</strong>
+              <div class="muted">{{ row.username }}</div>
+            </div>
+          </div>
+        </template>
       </el-table-column>
-      <el-table-column prop="activityCount" label="活动数" width="100" />
+      <el-table-column label="手机号" min-width="140">
+        <template #default="{ row }">{{ row.phone || '—' }}</template>
+      </el-table-column>
+      <el-table-column label="身份" width="120">
+        <template #default="{ row }">
+          <el-tag v-if="row.superAdmin" type="danger" effect="plain">超级管理员</el-tag>
+          <span v-else>普通用户</span>
+        </template>
+      </el-table-column>
+      <el-table-column label="注册时间" min-width="180">
+        <template #default="{ row }">{{ formatDateTime(row.createTime) }}</template>
+      </el-table-column>
     </el-table>
+
+    <div class="pager">
+      <el-pagination
+        v-model:current-page="pageNum"
+        v-model:page-size="pageSize"
+        :total="total"
+        :page-sizes="[10, 20, 50]"
+        layout="total, sizes, prev, pager, next"
+        background
+        @current-change="load"
+        @size-change="onSizeChange"
+      />
+    </div>
   </section>
 </template>
 
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { formatDateTime, pactApi, type GuestUser } from '@our-pact/shared'
+import { formatDateTime, pageUsers, type UserProfile } from '@our-pact/shared'
 
-const users = ref<GuestUser[]>([])
+const users = ref<UserProfile[]>([])
 const loading = ref(false)
+const keyword = ref('')
+const pageNum = ref(1)
+const pageSize = ref(10)
+const total = ref(0)
+
+function initial(row: UserProfile) {
+  return (row.nickname || row.username || '用').slice(0, 1)
+}
 
 async function load() {
   loading.value = true
   try {
-    users.value = await pactApi.listUsers()
+    const result = await pageUsers({
+      pageNum: pageNum.value,
+      pageSize: pageSize.value,
+      keyword: keyword.value.trim() || undefined,
+    })
+    users.value = result.list
+    total.value = result.total
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : '加载失败')
   } finally {
     loading.value = false
   }
+}
+
+function onSearch() {
+  if (pageNum.value !== 1) {
+    pageNum.value = 1
+    return
+  }
+  void load()
+}
+
+function onSizeChange() {
+  if (pageNum.value !== 1) {
+    pageNum.value = 1
+    return
+  }
+  void load()
 }
 
 onMounted(load)
@@ -52,5 +124,32 @@ onMounted(load)
 .head p {
   margin: 6px 0 0;
   color: #8a8680;
+}
+
+.toolbar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.toolbar .el-input {
+  width: 280px;
+}
+
+.user-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.muted {
+  color: #8a8680;
+  font-size: 12px;
+}
+
+.pager {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 16px;
 }
 </style>

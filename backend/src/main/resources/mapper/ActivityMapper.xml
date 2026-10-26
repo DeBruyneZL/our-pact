@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.kiven.lpp.ourpact.activity.mapper.ActivityMapper">
+
+    <sql id="activityColumns">
+        t.id, t.name, t.scheduled_at, t.location, t.share_code, t.user_id, t.people_count, t.status,
+        t.reply_note, t.replied_at, t.withdrawn_at, t.completed_at, t.create_time, t.update_time
+    </sql>
+
+    <select id="queryMine" resultType="com.kiven.lpp.ourpact.activity.entity.Activity">
+        SELECT <include refid="activityColumns"/>
+        FROM act_activity t
+        WHERE t.deleted = 0
+          AND (
+            t.user_id = #{query.userId}
+            OR EXISTS (
+                SELECT 1
+                FROM act_participant p
+                WHERE p.activity_id = t.id
+                  AND p.user_id = #{query.userId}
+                  AND p.deleted = 0
+            )
+          )
+        <if test="query.status != null and query.status != ''">
+            AND t.status = #{query.status}
+        </if>
+        ORDER BY t.scheduled_at DESC, t.id DESC
+    </select>
+
+    <select id="queryManage" resultType="com.kiven.lpp.ourpact.activity.entity.Activity">
+        SELECT <include refid="activityColumns"/>
+        FROM act_activity t
+        WHERE t.deleted = 0
+        <if test="query.status != null and query.status != ''">
+            AND t.status = #{query.status}
+        </if>
+        ORDER BY t.scheduled_at DESC, t.id DESC
+    </select>
+
+</mapper>

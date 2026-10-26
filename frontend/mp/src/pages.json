@@ -11,6 +11,19 @@
       "style": {
         "navigationBarTitleText": "我的"
       }
+    },
+    {
+      "path": "pages/activity/activity",
+      "style": {
+        "navigationBarTitleText": "活动"
+      }
+    },
+    {
+      "path": "pages/activity/detail",
+      "style": {
+        "navigationBarTitleText": "活动详情",
+        "enableShareAppMessage": true
+      }
     }
   ],
   "tabBar": {
@@ -22,6 +35,10 @@
       {
         "pagePath": "pages/menu/menu",
         "text": "点菜"
+      },
+      {
+        "pagePath": "pages/activity/activity",
+        "text": "活动"
       },
       {
         "pagePath": "pages/mine/mine",

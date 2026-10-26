@@ -559,10 +559,14 @@ export const pactApi = {
 
     const activity: Activity = {
       id: allocId(db),
+      name: '约饭',
       shareCode: shareCode(),
       userId: user.id,
       userName: user.name,
       scheduledAt: new Date(payload.scheduledAt).toISOString(),
+      location: '',
+      peopleCount: 1,
+      totalPeople: 1,
       status: 'open',
       createdAt: nowIso(),
       repliedAt: null,
@@ -570,6 +574,7 @@ export const pactApi = {
       withdrawnAt: null,
       completedAt: null,
       participantIds: [],
+      participants: [{ id: user.id, name: user.name, peopleCount: 1 }],
       items: buildItems(db, user, payload.items),
       photos: [],
     }

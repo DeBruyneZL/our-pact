@@ -1,4 +1,4 @@
-/** open 可分享加菜；replied 已答复不可再改；withdrawn 已撤回；completed 可手机先吃 */
+/** open 可分享、可加菜、发起人可改；replied 已答复，不能改名称时间和地点，也不能删菜，仍可加菜和撤回；withdrawn 已撤回；completed 可上传手机先吃的照片 */
 export type ActivityStatus = 'open' | 'replied' | 'withdrawn' | 'completed'
 
 export interface DishCategory {
@@ -68,6 +68,7 @@ export interface ActivityItem {
   id: number
   dishId: number | null
   dishName: string
+  dishImageUrl?: string | null
   note: string | null
   options: ActivityItemOption[]
   addedByUserId: number
@@ -78,16 +79,27 @@ export interface ActivityPhoto {
   id: number
   userId: number
   userName: string
-  imageDataUrl: string
+  imageDataUrl?: string
+  url?: string | null
   createdAt: string
+}
+
+export interface ActivityParticipant {
+  id: number
+  name: string
+  peopleCount: number
 }
 
 export interface Activity {
   id: number
+  name: string
   shareCode: string
   userId: number
   userName: string
   scheduledAt: string
+  location: string
+  peopleCount: number
+  totalPeople: number
   status: ActivityStatus
   createdAt: string
   repliedAt: string | null
@@ -95,8 +107,15 @@ export interface Activity {
   withdrawnAt: string | null
   completedAt: string | null
   participantIds: number[]
+  participants: ActivityParticipant[]
   items: ActivityItem[]
   photos: ActivityPhoto[]
+  owner?: boolean
+  canAdd?: boolean
+  canEdit?: boolean
+  canWithdraw?: boolean
+  canComplete?: boolean
+  canUpload?: boolean
 }
 
 export interface ActivitySubmitItem {

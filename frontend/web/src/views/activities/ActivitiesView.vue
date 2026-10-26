@@ -3,7 +3,7 @@
     <div class="head">
       <div>
         <h2>活动记录</h2>
-        <p>答复活动、查看撤回通知。答复后不可再改活动，不影响此前分享加菜。</p>
+        <p>答复不是审批，不挡住分享和加菜。答复之后不能再改名称、时间、地点，也不能删菜。发起人仍可撤回。</p>
       </div>
     </div>
 
@@ -15,7 +15,7 @@
     </div>
 
     <div class="filters">
-      <el-radio-group v-model="filter" @change="() => void load()">
+      <el-radio-group v-model="filter" @change="onFilter">
         <el-radio-button label="all">全部</el-radio-button>
         <el-radio-button label="open">待答复</el-radio-button>
         <el-radio-button label="replied">已答复</el-radio-button>
@@ -25,22 +25,36 @@
     </div>
 
     <el-table :data="activities" v-loading="loading" stripe>
-      <el-table-column label="发起人" min-width="140">
+      <el-table-column label="活动" min-width="180">
         <template #default="{ row }">
-          <strong>{{ row.userName }}</strong>
-          <div class="muted">提交于 {{ formatDateTime(row.createdAt) }}</div>
-          <div class="muted">分享码 {{ row.shareCode }}</div>
+          <strong>{{ row.name }}</strong>
+          <div class="muted">{{ row.userName }} · {{ formatDateTime(row.scheduledAt) }}</div>
+          <div class="muted">{{ row.location }}</div>
         </template>
       </el-table-column>
-      <el-table-column label="约定时间" min-width="150">
-        <template #default="{ row }">{{ formatDateTime(row.scheduledAt) }}</template>
+      <el-table-column label="参与人" min-width="140">
+        <template #default="{ row }">{{ participantNames(row) }}</template>
       </el-table-column>
-      <el-table-column label="菜品" min-width="240">
+      <el-table-column label="菜品" min-width="220">
         <template #default="{ row }">
+          <span v-if="!row.items.length" class="muted">还没有菜</span>
           <div v-for="item in row.items" :key="item.id" class="item-line">
             {{ item.dishName }}
             <small>{{ item.addedByUserName }}{{ itemMeta(item) ? ` · ${itemMeta(item)}` : '' }}</small>
           </div>
+        </template>
+      </el-table-column>
+      <el-table-column label="照片" width="88">
+        <template #default="{ row }">
+          <el-image
+            v-if="row.photos.length"
+            :src="row.photos[0].url"
+            :preview-src-list="photoUrls(row)"
+            fit="cover"
+            class="thumb"
+            preview-teleported
+          />
+          <span v-else class="muted">—</span>
         </template>
       </el-table-column>
       <el-table-column label="状态" width="100">
@@ -54,13 +68,26 @@
           <span v-else class="muted">—</span>
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="200">
+      <el-table-column label="操作" width="140">
         <template #default="{ row }">
           <el-button v-if="row.status === 'open'" link type="primary" @click="onReply(row)">答复</el-button>
           <el-button link type="danger" @click="onDelete(row)">删除</el-button>
         </template>
       </el-table-column>
     </el-table>
+
+    <div class="pager">
+      <el-pagination
+        v-model:current-page="pageNum"
+        v-model:page-size="pageSize"
+        :total="total"
+        :page-sizes="[10, 20, 50]"
+        layout="total, sizes, prev, pager, next"
+        background
+        @current-change="load"
+        @size-change="onSizeChange"
+      />
+    </div>
   </section>
 </template>
 
@@ -68,8 +95,12 @@
 import { computed, onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
+  deleteActivity,
   formatDateTime,
-  pactApi,
+  listActivityNotices,
+  pageManageActivities,
+  readActivityNotice,
+  replyActivity,
   type Activity,
   type ActivityItem,
   type ActivityStatus,
@@ -80,6 +111,9 @@ const activities = ref<Activity[]>([])
 const notices = ref<AdminNotice[]>([])
 const loading = ref(false)
 const filter = ref<'all' | ActivityStatus>('all')
+const pageNum = ref(1)
+const pageSize = ref(10)
+const total = ref(0)
 
 const unreadNotices = computed(() => notices.value.filter((item) => !item.read))
 
@@ -110,22 +144,51 @@ function itemMeta(item: ActivityItem) {
     .join(' · ')
 }
 
+function participantNames(row: Activity) {
+  const names = row.participants.map((item) => `${item.name} ${item.peopleCount || 1}人`).join('、')
+  return names ? `${names}（共 ${row.totalPeople || row.participants.length} 人）` : '—'
+}
+
+function photoUrls(row: Activity) {
+  return row.photos.map((item) => item.url).filter((item): item is string => Boolean(item))
+}
+
 async function loadNotices() {
-  notices.value = await pactApi.listNotices()
+  notices.value = await listActivityNotices()
 }
 
 async function load() {
   loading.value = true
   try {
-    activities.value = await pactApi.listActivities(
-      filter.value === 'all' ? undefined : { status: filter.value },
-    )
+    const result = await pageManageActivities({
+      pageNum: pageNum.value,
+      pageSize: pageSize.value,
+      status: filter.value === 'all' ? undefined : filter.value,
+    })
+    activities.value = result.list
+    total.value = result.total
     await loadNotices()
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : '加载失败')
   } finally {
     loading.value = false
   }
+}
+
+function onFilter() {
+  if (pageNum.value === 1) {
+    void load()
+    return
+  }
+  pageNum.value = 1
+}
+
+function onSizeChange() {
+  if (pageNum.value === 1) {
+    void load()
+    return
+  }
+  pageNum.value = 1
 }
 
 async function onReply(row: Activity) {
@@ -136,8 +199,8 @@ async function onReply(row: Activity) {
       inputPlaceholder: '例如：好的，我来准备',
       inputValue: '',
     })
-    await pactApi.replyActivity(row.id, value)
-    ElMessage.success('已答复，活动不可再修改')
+    await replyActivity(row.id, value)
+    ElMessage.success('已答复。名称、时间和地点不能再改，已分享的加菜不受影响')
     await load()
   } catch (error) {
     if (error === 'cancel') return
@@ -147,7 +210,7 @@ async function onReply(row: Activity) {
 
 async function markRead(id: number) {
   try {
-    await pactApi.markNoticeRead(id)
+    await readActivityNotice(id)
     await loadNotices()
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : '操作失败')
@@ -156,10 +219,8 @@ async function markRead(id: number) {
 
 async function onDelete(row: Activity) {
   try {
-    await ElMessageBox.confirm(`删除 ${row.userName} 的活动 #${row.id}？`, '删除活动', {
-      type: 'warning',
-    })
-    await pactApi.deleteActivity(row.id)
+    await ElMessageBox.confirm(`删除活动「${row.name}」？`, '删除活动', { type: 'warning' })
+    await deleteActivity(row.id)
     ElMessage.success('活动已删除')
     await load()
   } catch (error) {
@@ -219,5 +280,17 @@ onMounted(load)
 .item-line small {
   display: block;
   color: #8a8680;
+}
+
+.thumb {
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+}
+
+.pager {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 16px;
 }
 </style>

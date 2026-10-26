@@ -1,10 +1,15 @@
 package com.kiven.lpp.ourpact.user.service.impl;
 
+import cn.dev33.satoken.stp.StpUtil;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.kiven.lpp.ourpact.common.BusinessException;
+import com.kiven.lpp.ourpact.common.PageResult;
+import com.kiven.lpp.ourpact.common.PageUtil;
 import com.kiven.lpp.ourpact.common.YesNo;
 import com.kiven.lpp.ourpact.user.dto.ProfileUpdateRequest;
+import com.kiven.lpp.ourpact.user.dto.UserPageQuery;
 import com.kiven.lpp.ourpact.user.dto.UserProfileResponse;
 import com.kiven.lpp.ourpact.user.entity.User;
 import com.kiven.lpp.ourpact.user.mapper.UserMapper;
@@ -17,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 /**
  * 用户登录与个人资料。
@@ -89,6 +95,19 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     }
 
     @Override
+    public PageResult<UserProfileResponse> page(UserPageQuery query) {
+        requireAdmin();
+        UserPageQuery safe = query == null ? new UserPageQuery() : query;
+        if (safe.getKeyword() != null) {
+            safe.setKeyword(safe.getKeyword().trim());
+        }
+        Page<User> raw = baseMapper.queryByPage(PageUtil.toPage(safe), safe);
+        Page<UserProfileResponse> mapped = new Page<>(raw.getCurrent(), raw.getSize(), raw.getTotal());
+        mapped.setRecords(raw.getRecords().stream().map(this::toListItem).collect(Collectors.toList()));
+        return PageUtil.toResult(mapped);
+    }
+
+    @Override
     public UserProfileResponse toProfile(User user) {
         UserProfileResponse response = new UserProfileResponse();
         response.setId(user.getId());
@@ -114,6 +133,12 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             }
         }
         String nickname = request.getNickname().trim();
+        User occupiedName = getOne(Wrappers.<User>lambdaQuery()
+                .eq(User::getNickname, nickname)
+                .ne(User::getId, userId), false);
+        if (occupiedName != null) {
+            throw new BusinessException("这个昵称已经有人用了");
+        }
         try {
             update(Wrappers.<User>lambdaUpdate()
                     .eq(User::getId, userId)
@@ -185,6 +210,28 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
     private User findByOpenid(String openid) {
         return getOne(Wrappers.<User>lambdaQuery().eq(User::getWxOpenid, openid), false);
+    }
+
+    private void requireAdmin() {
+        User user = getById(StpUtil.getLoginIdAsLong());
+        if (user == null || !YesNo.YES.getValue().equals(user.getSuperAdmin())) {
+            throw new BusinessException("需要超级管理员权限");
+        }
+    }
+
+    /**
+     * 列表保留库里的昵称，空昵称不回退成用户名。
+     */
+    private UserProfileResponse toListItem(User user) {
+        UserProfileResponse response = new UserProfileResponse();
+        response.setId(user.getId());
+        response.setUsername(user.getUsername());
+        response.setNickname(user.getNickname());
+        response.setPhone(user.getPhone());
+        response.setAvatar(avatarStorage.url(user.getAvatar()));
+        response.setSuperAdmin(YesNo.YES.getValue().equals(user.getSuperAdmin()));
+        response.setCreateTime(user.getCreateTime());
+        return response;
     }
 
     private User requireUser(Long userId) {
