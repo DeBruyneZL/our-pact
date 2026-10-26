@@ -1,7 +1,7 @@
 # 编译 Web 管理端，再交给 Nginx。构建上下文是项目根目录。
 FROM node:20-alpine AS frontend
 WORKDIR /app
-RUN corepack enable && corepack prepare pnpm@9.15.9 --activate
+RUN corepack enable && corepack prepare pnpm@10.30.3 --activate
 
 COPY frontend/package.json frontend/pnpm-lock.yaml frontend/pnpm-workspace.yaml frontend/tsconfig.base.json ./
 COPY frontend/web/package.json web/package.json
