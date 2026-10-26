@@ -13,10 +13,12 @@ services:
       MYSQL_USERNAME: root
       MYSQL_PASSWORD: ourpact123
       AVATAR_DIR: /data/our-pact/avatars
+      DISH_IMAGE_DIR: /data/our-pact/dishes
       ACTIVITY_DIR: /data/our-pact/activities
-    # 宿主机网络不影响卷挂载。头像和活动照片落在服务器目录，重建容器不会丢文件
+    # 宿主机网络不影响卷挂载。头像、菜品图、活动照片落在服务器目录，重建容器不会丢文件
     volumes:
       - /data/our-pact/avatars:/data/our-pact/avatars
+      - /data/our-pact/dishes:/data/our-pact/dishes
       - /data/our-pact/activities:/data/our-pact/activities
     restart: unless-stopped
 

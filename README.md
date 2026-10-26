@@ -102,7 +102,7 @@ docker compose up -d --build
 - 小程序不由 Nginx 托管，用微信开发者工具上传 `frontend/mp` 的构建产物
 - 后端与 MySQL 在同一台机器，容器使用宿主机网络，数据库地址是 `127.0.0.1:3306`
 - Nginx 把 `/api` 反代到宿主机 `8080`
-- 头像文件在宿主机 `/data/our-pact/avatars`，挂进后端容器的同一路径。`network_mode: host` 不影响这个卷。重建容器不会删这个目录
+- 头像、菜品图、活动照片分别在宿主机 `/data/our-pact/avatars`、`/data/our-pact/dishes`、`/data/our-pact/activities`，挂进后端容器同一路径。`network_mode: host` 不影响这些卷。重建容器不会删这些目录；删掉项目源码目录（如 `our-pact-main/`）也不会影响它们
 
 数据库不在本机时，再通过环境变量 `MYSQL_HOST`、`MYSQL_PORT` 覆盖。
 
