@@ -14,6 +14,12 @@ public class ActivityParticipantResponse {
 
     private String name;
 
+    /** 头像访问路径，没有时为 null。 */
+    private String avatar;
+
+    /** 是否活动发起人 */
+    private Boolean owner;
+
     /** 这一方来几个人 */
     private Integer peopleCount;
 }

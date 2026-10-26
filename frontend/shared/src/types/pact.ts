@@ -73,6 +73,7 @@ export interface ActivityItem {
   options: ActivityItemOption[]
   addedByUserId: number
   addedByUserName: string
+  addedByUserAvatar?: string | null
 }
 
 export interface ActivityPhoto {
@@ -87,6 +88,8 @@ export interface ActivityPhoto {
 export interface ActivityParticipant {
   id: number
   name: string
+  avatar?: string | null
+  owner?: boolean
   peopleCount: number
 }
 

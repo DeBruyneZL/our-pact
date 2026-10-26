@@ -47,6 +47,7 @@ import com.kiven.lpp.ourpact.menu.mapper.DishOptionValueMapper;
 import com.kiven.lpp.ourpact.menu.service.DishImageStorage;
 import com.kiven.lpp.ourpact.user.entity.User;
 import com.kiven.lpp.ourpact.user.mapper.UserMapper;
+import com.kiven.lpp.ourpact.user.service.AvatarStorage;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -108,6 +109,8 @@ public class ActivityServiceImpl implements ActivityService {
 
     private final DishImageStorage dishImageStorage;
 
+    private final AvatarStorage avatarStorage;
+
     private final SecureRandom random = new SecureRandom();
 
     public ActivityServiceImpl(ActivityMapper activityMapper,
@@ -122,7 +125,8 @@ public class ActivityServiceImpl implements ActivityService {
                                DishMapper dishMapper,
                                DishOptionGroupMapper dishOptionGroupMapper,
                                DishOptionValueMapper dishOptionValueMapper,
-                               DishImageStorage dishImageStorage) {
+                               DishImageStorage dishImageStorage,
+                               AvatarStorage avatarStorage) {
         this.activityMapper = activityMapper;
         this.participantMapper = participantMapper;
         this.noticeMapper = noticeMapper;
@@ -136,6 +140,7 @@ public class ActivityServiceImpl implements ActivityService {
         this.dishOptionGroupMapper = dishOptionGroupMapper;
         this.dishOptionValueMapper = dishOptionValueMapper;
         this.dishImageStorage = dishImageStorage;
+        this.avatarStorage = avatarStorage;
     }
 
     @Override
@@ -632,18 +637,21 @@ public class ActivityServiceImpl implements ActivityService {
                                                              Map<Long, User> users,
                                                              List<ActivityParticipant> participants) {
         List<ActivityParticipantResponse> people = new ArrayList<>();
-        people.add(toPerson(activity.getUserId(), users, peopleCount(activity.getPeopleCount())));
+        people.add(toPerson(activity.getUserId(), users, peopleCount(activity.getPeopleCount()), true));
         participants.stream()
                 .sorted(Comparator.comparing(ActivityParticipant::getId))
                 .filter(item -> !activity.getUserId().equals(item.getUserId()))
-                .forEach(item -> people.add(toPerson(item.getUserId(), users, peopleCount(item.getPeopleCount()))));
+                .forEach(item -> people.add(toPerson(item.getUserId(), users, peopleCount(item.getPeopleCount()), false)));
         return people;
     }
 
-    private ActivityParticipantResponse toPerson(Long userId, Map<Long, User> users, int count) {
+    private ActivityParticipantResponse toPerson(Long userId, Map<Long, User> users, int count, boolean owner) {
+        User user = users.get(userId);
         ActivityParticipantResponse person = new ActivityParticipantResponse();
         person.setId(userId);
-        person.setName(displayName(users.get(userId)));
+        person.setName(displayName(user));
+        person.setAvatar(user == null ? null : avatarStorage.url(user.getAvatar()));
+        person.setOwner(owner);
         person.setPeopleCount(count);
         return person;
     }
@@ -696,7 +704,9 @@ public class ActivityServiceImpl implements ActivityService {
             response.setDishImageUrl(dish == null ? null : dishImageStorage.url(dish.getImageName()));
             response.setNote(item.getNote());
             response.setAddedByUserId(item.getAddedByUserId());
-            response.setAddedByUserName(displayName(users.get(item.getAddedByUserId())));
+            User addedBy = users.get(item.getAddedByUserId());
+            response.setAddedByUserName(displayName(addedBy));
+            response.setAddedByUserAvatar(addedBy == null ? null : avatarStorage.url(addedBy.getAvatar()));
             List<ActivityOptionResponse> options = new ArrayList<>();
             for (ActivityItemOption option : optionMap.getOrDefault(item.getId(), List.of())) {
                 ActivityOptionResponse optionResponse = new ActivityOptionResponse();

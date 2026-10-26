@@ -28,4 +28,7 @@ public class ActivityItemResponse {
     private Long addedByUserId;
 
     private String addedByUserName;
+
+    /** 加菜人头像访问路径，没有时为 null。 */
+    private String addedByUserAvatar;
 }
