@@ -30,6 +30,9 @@ public class DishSaveRequest {
 
     private Boolean isActive;
 
+    /** 不传或 false 时，同一活动里这道菜只能出现一次。 */
+    private Boolean allowRepeat;
+
     private Integer sortOrder;
 
     @Valid

@@ -28,6 +28,8 @@ export interface Dish {
   /** 本地上传后的图片（data URL） */
   imageUrl: string | null
   isActive: boolean
+  /** 活动里可以重复点，并挂在点单人下面。 */
+  allowRepeat?: boolean
   sortOrder: number
   createdAt?: string
   updatedAt?: string
@@ -41,6 +43,7 @@ export interface DishDraft {
   /** 本地上传后的图片（data URL） */
   imageUrl: string | null
   isActive: boolean
+  allowRepeat?: boolean
   sortOrder: number
   optionGroups: Array<{
     id?: number
@@ -73,6 +76,8 @@ export interface ActivityItem {
   options: ActivityItemOption[]
   addedByUserId: number
   addedByUserName: string
+  /** 允许重复添加时，这道菜挂在点单人下面。 */
+  allowRepeat?: boolean
   addedByUserAvatar?: string | null
 }
 

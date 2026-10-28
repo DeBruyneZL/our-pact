@@ -465,15 +465,28 @@ public class ActivityServiceImpl implements ActivityService {
     }
 
     private void assertNoDuplicateDishes(Long activityId, List<ActivityItemRequest> requests) {
-        Set<Long> dishIds = new HashSet<>();
+        List<Long> dishIds = requests.stream().map(ActivityItemRequest::getDishId).distinct().toList();
+        Map<Long, Dish> dishMap = dishIds.isEmpty()
+                ? Map.of()
+                : dishMapper.selectList(Wrappers.<Dish>lambdaQuery().in(Dish::getId, dishIds))
+                .stream()
+                .collect(Collectors.toMap(Dish::getId, Function.identity()));
+        Set<Long> uniqueIds = new HashSet<>();
         for (ActivityItemRequest request : requests) {
-            if (!dishIds.add(request.getDishId())) {
+            Dish dish = dishMap.get(request.getDishId());
+            if (dish != null && YesNo.YES.getValue().equals(dish.getAllowRepeat())) {
+                continue;
+            }
+            if (!uniqueIds.add(request.getDishId())) {
                 throw new BusinessException("同一道菜不能重复添加");
             }
         }
+        if (uniqueIds.isEmpty()) {
+            return;
+        }
         List<ActivityItem> existing = itemService.list(Wrappers.<ActivityItem>lambdaQuery()
                 .eq(ActivityItem::getActivityId, activityId)
-                .in(ActivityItem::getDishId, dishIds));
+                .in(ActivityItem::getDishId, uniqueIds));
         if (!existing.isEmpty()) {
             throw new BusinessException("这道菜已经加过了");
         }
@@ -701,6 +714,7 @@ public class ActivityServiceImpl implements ActivityService {
             response.setDishId(item.getDishId());
             response.setDishName(item.getDishName());
             Dish dish = item.getDishId() == null ? null : dishMap.get(item.getDishId());
+            response.setAllowRepeat(dish != null && YesNo.YES.getValue().equals(dish.getAllowRepeat()));
             response.setDishImageUrl(dish == null ? null : dishImageStorage.url(dish.getImageName()));
             response.setNote(item.getNote());
             response.setAddedByUserId(item.getAddedByUserId());

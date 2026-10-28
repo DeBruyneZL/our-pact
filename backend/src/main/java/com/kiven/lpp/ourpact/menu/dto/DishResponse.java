@@ -26,6 +26,9 @@ public class DishResponse {
 
     private Boolean isActive;
 
+    /** 活动中可否由同一人或不同人重复添加。 */
+    private Boolean allowRepeat;
+
     private Integer sortOrder;
 
     private LocalDateTime createdAt;

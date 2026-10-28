@@ -131,6 +131,7 @@ public class DishServiceImpl extends ServiceImpl<DishMapper, Dish> implements Di
         dish.setDescription(request.getDescription() == null ? "" : request.getDescription().trim());
         dish.setSortOrder(request.getSortOrder() == null ? 0 : request.getSortOrder());
         dish.setIsActive(Boolean.FALSE.equals(request.getIsActive()) ? YesNo.NO.getValue() : YesNo.YES.getValue());
+        dish.setAllowRepeat(Boolean.TRUE.equals(request.getAllowRepeat()) ? YesNo.YES.getValue() : YesNo.NO.getValue());
         dish.setImageName(resolveImage(dish.getImageName(), request.getImageUrl()));
     }
 
@@ -205,6 +206,7 @@ public class DishServiceImpl extends ServiceImpl<DishMapper, Dish> implements Di
             response.setDescription(dish.getDescription());
             response.setImageUrl(imageStorage.url(dish.getImageName()));
             response.setIsActive(YesNo.YES.getValue().equals(dish.getIsActive()));
+            response.setAllowRepeat(YesNo.YES.getValue().equals(dish.getAllowRepeat()));
             response.setSortOrder(dish.getSortOrder());
             response.setCreatedAt(dish.getCreateTime());
             response.setUpdatedAt(dish.getUpdateTime());

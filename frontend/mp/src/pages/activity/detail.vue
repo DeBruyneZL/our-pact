@@ -8,8 +8,11 @@
           <text class="name">{{ activity.name }}</text>
           <text class="status">{{ statusLabel(activity.status) }}</text>
         </view>
-        <text class="meta">{{ formatWhen(activity.scheduledAt) }} · {{ activity.location }}</text>
-        <text class="meta">{{ participantText }}</text>
+        <text class="meta">{{ whenText }}</text>
+        <view class="people-row">
+          <text class="meta">{{ peopleText }}</text>
+          <text class="people-btn" @tap="showPeople = true">参加人</text>
+        </view>
         <text v-if="activity.replyNote" class="meta">答复：{{ activity.replyNote }}</text>
         <view class="share-row">
           <button class="ghost" hover-class="none" open-type="share">发给好友</button>
@@ -38,10 +41,8 @@
 
       <view class="card">
         <text class="section">菜品</text>
-        <view v-if="!activity.items.length" class="meta">
-          {{ activity.canAdd ? '还没有菜，可以去加。' : '还没有菜，确认参加后可以加。' }}
-        </view>
-        <view v-for="row in dishCards" :key="row.id" class="dish">
+        <view v-if="emptyDishText" class="meta">{{ emptyDishText }}</view>
+        <view v-for="row in sharedCards" :key="row.id" class="dish">
           <image
             v-if="row.showCover"
             class="thumb"
@@ -56,7 +57,29 @@
           </view>
           <text v-if="row.canRemove" class="remove" @tap="onRemove(row.id)">移除</text>
         </view>
-        <button v-if="activity.canAdd" class="primary" @tap="goAddDish">去加菜</button>
+        <view v-for="group in orderGroups" :key="group.id" class="order">
+          <view class="order-head">
+            <image v-if="group.showAvatar" class="mini-avatar" :src="group.avatarSrc" mode="aspectFill" />
+            <view v-else class="mini-avatar mini-fallback">{{ group.initial }}</view>
+            <text class="order-title">{{ group.title }}</text>
+          </view>
+          <view v-for="row in group.dishes" :key="row.id" class="dish">
+            <image
+              v-if="row.showCover"
+              class="thumb"
+              :src="row.coverSrc"
+              mode="aspectFill"
+              @error="onThumbError(row.id)"
+            />
+            <view v-else class="thumb thumb-empty">暂无</view>
+            <view class="dish-main">
+              <text class="dish-title">{{ row.title }}</text>
+              <text v-if="row.extra" class="dish-meta">{{ row.extra }}</text>
+            </view>
+            <text v-if="row.canRemove" class="remove" @tap="onRemove(row.id)">移除</text>
+          </view>
+        </view>
+        <button v-if="canAddDish" class="primary" @tap="goAddDish">去加菜</button>
       </view>
 
       <view v-if="activity.photos.length || activity.canUpload" class="card">
@@ -77,6 +100,21 @@
       <view v-if="activity.canWithdraw || activity.canComplete" class="actions">
         <button v-if="activity.canComplete" class="primary" @tap="onComplete">手机先吃</button>
         <button v-if="activity.canWithdraw" class="danger" @tap="onWithdraw">撤回</button>
+      </view>
+
+      <view v-if="showPeople" class="mask" @tap="showPeople = false">
+        <view class="sheet" @tap.stop>
+          <text class="sheet-title">参加人</text>
+          <scroll-view scroll-y class="sheet-list">
+            <view v-for="person in personCards" :key="person.id" class="person">
+              <image v-if="person.showAvatar" class="person-avatar" :src="person.avatarSrc" mode="aspectFill" />
+              <view v-else class="person-avatar person-fallback">{{ person.initial }}</view>
+              <text class="person-name">{{ person.title }}</text>
+              <text class="person-count">{{ person.countText }}</text>
+            </view>
+          </scroll-view>
+          <text class="text-link" @tap="showPeople = false">关闭</text>
+        </view>
       </view>
     </template>
   </view>
@@ -112,44 +150,127 @@ const editDate = ref('')
 const editTime = ref('')
 const editLocation = ref('')
 const joinCount = ref('1')
+const showPeople = ref(false)
 let activityId = 0
 let shareCode = ''
 
+interface DishCard {
+  id: number
+  title: string
+  extra: string
+  coverSrc: string
+  showCover: boolean
+  canRemove: boolean
+}
+
 const myId = computed(() => auth.profile?.id)
-const participantText = computed(() => {
+const whenText = computed(() => {
   const current = activity.value
   if (!current) {
     return ''
   }
-  const names = current.participants.map((item) => `${item.name} ${item.peopleCount || 1}人`).join('、')
-  return `${names} · 共 ${current.totalPeople} 人`
+  const when = (current.scheduledAt || '').replace('T', ' ').slice(0, 16)
+  const place = current.location || ''
+  return place ? `${when} · ${place}` : when
 })
-const dishCards = computed(() => {
+const peopleText = computed(() => {
+  const current = activity.value
+  if (!current) {
+    return ''
+  }
+  return `共 ${current.totalPeople || 0} 人`
+})
+const canAddDish = computed(() => Boolean(activity.value?.canAdd))
+const personCards = computed(() => {
+  const current = activity.value
+  if (!current) {
+    return [] as Array<{ id: number; title: string; countText: string; avatarSrc: string; showAvatar: boolean; initial: string }>
+  }
+  return current.participants.map((person) => {
+    const title = person.name || '未命名'
+    const avatarSrc = person.avatar ? absoluteUrl(person.avatar) : ''
+    return {
+      id: person.id,
+      title,
+      countText: `${person.peopleCount || 1} 人`,
+      avatarSrc,
+      showAvatar: Boolean(avatarSrc),
+      initial: title.slice(0, 1),
+    }
+  })
+})
+const emptyDishText = computed(() => {
+  const current = activity.value
+  if (!current || current.items.length) {
+    return ''
+  }
+  return current.canAdd ? '还没有菜，可以去加。' : '还没有菜，确认参加后可以加。'
+})
+const sharedCards = computed(() => {
+  const current = activity.value
+  if (!current) {
+    return [] as DishCard[]
+  }
+  return current.items.filter((item) => !item.allowRepeat).map((item) => toDishCard(current, item, true))
+})
+const orderGroups = computed(() => {
   const current = activity.value
   if (!current) {
     return [] as Array<{
       id: number
       title: string
-      extra: string
-      coverSrc: string
-      showCover: boolean
-      canRemove: boolean
+      avatarSrc: string
+      showAvatar: boolean
+      initial: string
+      dishes: DishCard[]
     }>
   }
-  return current.items.map((item) => {
-    const cover = typeof item.dishImageUrl === 'string' ? item.dishImageUrl : ''
-    const failed = failedThumbs[item.id] === true
-    const extra = [item.addedByUserName, itemText(item)].filter(Boolean).join(' · ')
+  const groups = new Map<number, DishCard[]>()
+  const names = new Map<number, { title: string; avatarSrc: string }>()
+  for (const item of current.items) {
+    if (!item.allowRepeat) {
+      continue
+    }
+    const userId = item.addedByUserId
+    const list = groups.get(userId) || []
+    list.push(toDishCard(current, item, false))
+    groups.set(userId, list)
+    if (!names.has(userId)) {
+      const person = current.participants.find((entry) => entry.id === userId)
+      const title = person?.name || item.addedByUserName || '未命名'
+      const avatar = person?.avatar || item.addedByUserAvatar
+      names.set(userId, { title, avatarSrc: avatar ? absoluteUrl(avatar) : '' })
+    }
+  }
+  return [...groups.entries()].map(([id, dishes]) => {
+    const info = names.get(id)
+    const title = info?.title || '未命名'
+    const avatarSrc = info?.avatarSrc || ''
     return {
-      id: item.id,
-      title: typeof item.dishName === 'string' && item.dishName ? item.dishName : '未命名菜品',
-      extra,
-      coverSrc: cover ? absoluteUrl(cover) : '',
-      showCover: cover !== '' && !failed,
-      canRemove: (current.status === 'open' || current.status === 'replied') && item.addedByUserId === myId.value,
+      id,
+      title: `${title}点的`,
+      avatarSrc,
+      showAvatar: Boolean(avatarSrc),
+      initial: title.slice(0, 1),
+      dishes,
     }
   })
 })
+
+function toDishCard(current: Activity, item: ActivityItem, withWho: boolean): DishCard {
+  const cover = typeof item.dishImageUrl === 'string' ? item.dishImageUrl : ''
+  const failed = failedThumbs[item.id] === true
+  const detail = itemText(item)
+  const who = withWho ? item.addedByUserName : ''
+  return {
+    id: item.id,
+    title: typeof item.dishName === 'string' && item.dishName ? item.dishName : '未命名菜品',
+    extra: [who, detail].filter(Boolean).join(' · '),
+    coverSrc: cover ? absoluteUrl(cover) : '',
+    showCover: cover !== '' && !failed,
+    canRemove: (current.status === 'open' || current.status === 'replied') && item.addedByUserId === myId.value,
+  }
+}
 
 function onThumbError(itemId: number) {
   failedThumbs[itemId] = true
@@ -470,6 +591,127 @@ onShareAppMessage(() => ({
 
 .share-row {
   margin-top: 10px;
+}
+
+.people-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.people-row .meta {
+  margin-top: 6px;
+}
+
+.people-btn {
+  flex-shrink: 0;
+  margin-top: 6px;
+  color: #3d6f5c;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.order {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #efeae2;
+}
+
+.order-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0 2px;
+}
+
+.order-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #3d6f5c;
+}
+
+.mini-avatar,
+.person-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #dce9e1;
+  flex-shrink: 0;
+}
+
+.mini-fallback,
+.person-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #3d6f5c;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.mask {
+  position: fixed;
+  inset: 0;
+  background: rgba(44, 42, 38, 0.5);
+  z-index: 30;
+  display: flex;
+  align-items: flex-end;
+}
+
+.sheet {
+  width: 100%;
+  background: #fffcf7;
+  border-radius: 20px 20px 0 0;
+  padding: 18px 16px calc(18px + env(safe-area-inset-bottom));
+  box-sizing: border-box;
+}
+
+.sheet-title {
+  display: block;
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.sheet-list {
+  max-height: 50vh;
+}
+
+.person {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid #efeae2;
+}
+
+.person-avatar {
+  width: 40px;
+  height: 40px;
+  font-size: 16px;
+}
+
+.person-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: #2f2c28;
+}
+
+.person-count {
+  flex-shrink: 0;
+  color: #5c5852;
+  font-size: 13px;
+}
+
+.text-link {
+  display: block;
+  margin-top: 14px;
+  text-align: center;
+  color: #8a8680;
+  font-size: 13px;
 }
 
 .dish-title {

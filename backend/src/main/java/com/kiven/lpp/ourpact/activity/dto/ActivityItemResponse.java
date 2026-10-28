@@ -18,6 +18,9 @@ public class ActivityItemResponse {
 
     private String dishName;
 
+    /** 这道菜允许在活动里重复添加，展示时挂在点单人下面。 */
+    private Boolean allowRepeat;
+
     /** 菜品封面访问路径，没有图时为 null。 */
     private String dishImageUrl;
 

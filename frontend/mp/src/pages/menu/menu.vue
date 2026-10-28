@@ -182,10 +182,12 @@ const dishCards = computed(() => {
   const pending = Boolean(pendingActivity.value)
   return filteredDishes.value.map((dish) => {
     const picked = Boolean(selected[dish.id])
+    const repeatable = Boolean(dish.allowRepeat)
     const added = addedDishIds.value.includes(dish.id)
+    const locked = added && !repeatable
     const coverSrc = dish.imageUrl && !failedCovers[dish.id] ? absoluteUrl(dish.imageUrl) : ''
     let skin = 'dish-card'
-    if (pending && added) {
+    if (pending && locked) {
       skin = 'dish-card added'
     } else if (!pending && picked) {
       skin = 'dish-card selected'
@@ -198,8 +200,8 @@ const dishCards = computed(() => {
       showCover: Boolean(coverSrc),
       showPick: !pending && picked,
       showPlus: pending,
-      plusText: added ? CHECK_MARK : PLUS_MARK,
-      plusSkin: added ? 'plus done' : 'plus',
+      plusText: locked ? CHECK_MARK : PLUS_MARK,
+      plusSkin: locked ? 'plus done' : 'plus',
       skin,
     }
   })
@@ -307,7 +309,8 @@ async function onPlus(dishId: number) {
   if (!pendingActivity.value || addingDishId.value) {
     return
   }
-  if (addedDishIds.value.includes(dishId)) {
+  const dish = dishes.value.find((item) => item.id === dishId)
+  if (!dish?.allowRepeat && addedDishIds.value.includes(dishId)) {
     uni.showToast({ title: '这道菜已经加过了', icon: 'none' })
     return
   }

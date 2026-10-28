@@ -33,6 +33,7 @@
                   <span class="status" :class="row.isActive ? 'on' : 'off'">
                     {{ row.isActive ? '上架' : '下架' }}
                   </span>
+                  <span v-if="row.allowRepeat" class="status repeat">可重复</span>
                 </div>
                 <div class="muted">{{ row.description || '暂无描述' }}</div>
               </div>
@@ -135,6 +136,11 @@
             <span class="meta-label">上架</span>
             <el-switch v-model="form.isActive" />
             <span class="meta-hint">{{ form.isActive ? '小程序可见' : '小程序隐藏' }}</span>
+          </div>
+          <div class="meta-card">
+            <span class="meta-label">可以重复添加</span>
+            <el-switch v-model="form.allowRepeat" />
+            <span class="meta-hint">{{ form.allowRepeat ? '活动里可点多份，挂在点单人下' : '同一活动只能出现一次' }}</span>
           </div>
         </div>
 
@@ -244,6 +250,7 @@ const form = reactive({
   imageUrl: '',
   sortOrder: 0,
   isActive: true,
+  allowRepeat: false,
   optionGroups: [] as Array<{
     id?: number
     name: string
@@ -285,6 +292,7 @@ function resetForm(dish?: Dish | null) {
   form.imageUrl = dish?.imageUrl || ''
   form.sortOrder = dish?.sortOrder || 0
   form.isActive = dish?.isActive ?? true
+  form.allowRepeat = dish?.allowRepeat ?? false
   form.optionGroups = (dish?.optionGroups || []).map((group) => ({
     id: group.id,
     name: group.name,
@@ -353,6 +361,7 @@ async function onSave() {
       description: form.description.trim(),
       imageUrl: form.imageUrl || null,
       isActive: form.isActive,
+      allowRepeat: form.allowRepeat,
       sortOrder: form.sortOrder || 0,
       optionGroups: form.optionGroups
         .map((group) => ({
@@ -830,6 +839,11 @@ onMounted(load)
 .status.on {
   color: #2f7d57;
   background: #e5f4ec;
+}
+
+.status.repeat {
+  color: #4a6f94;
+  background: #e3ecf4;
 }
 
 .status.off {

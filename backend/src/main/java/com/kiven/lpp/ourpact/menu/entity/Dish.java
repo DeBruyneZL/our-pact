@@ -30,5 +30,8 @@ public class Dish extends BaseEntity {
     /** 取值见 {@link com.kiven.lpp.ourpact.common.YesNo} */
     private Integer isActive;
 
+    /** 取值见 {@link com.kiven.lpp.ourpact.common.YesNo}。允许时同一活动可多次添加，并挂在点单人下。 */
+    private Integer allowRepeat;
+
     private Integer sortOrder;
 }
