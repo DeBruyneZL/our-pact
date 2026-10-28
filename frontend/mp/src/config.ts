@@ -1,9 +1,9 @@
 /**
  * 小程序请求后端的地址。
- * 开发时在微信开发者工具勾选「不校验合法域名」，本机 127.0.0.1 即可；
- * 真机预览时改成电脑的局域网 IP；上线前换成已备案的 https 域名。
+ * 上线后用已备案的 https 域名，微信要求 request 域名必须是 https。
+ * 本机调试时临时改成 http://127.0.0.1:8088/api，并在开发者工具勾选「不校验合法域名」。
  */
-export const API_BASE_URL = 'http://127.0.0.1:8080/api'
+export const API_BASE_URL = 'https://kivenlpp.cn/api'
 
 /** 后端返回的相对路径（/api/...）转成小程序可加载的绝对地址。 */
 export function absoluteUrl(path?: string | null): string {
