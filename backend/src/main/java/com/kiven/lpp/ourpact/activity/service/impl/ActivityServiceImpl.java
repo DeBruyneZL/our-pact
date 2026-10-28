@@ -68,7 +68,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
- * 活动规则：分享后只能加自己的菜；答复后不能改名称、时间和地点，也不能删菜；撤回通知管理员。
+ * 活动规则：只能删自己加的菜；待答复和已答复都可以删。答复后不能改名称、时间和地点。撤回通知管理员。
  *
  * @author zhangliang
  */
@@ -274,8 +274,8 @@ public class ActivityServiceImpl implements ActivityService {
     public ActivityResponse deleteItem(Long id, Long itemId) {
         long userId = currentUserId();
         Activity activity = requireActivity(id);
-        if (!ActivityStatus.OPEN.getValue().equals(activity.getStatus())) {
-            throw new BusinessException("答复后不能再修改活动");
+        if (!canAcceptMember(activity)) {
+            throw new BusinessException(closedMessage(activity));
         }
         ActivityItem item = itemService.getById(itemId);
         if (item == null || !id.equals(item.getActivityId())) {

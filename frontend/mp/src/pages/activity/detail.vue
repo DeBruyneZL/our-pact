@@ -12,7 +12,7 @@
         <text class="meta">{{ participantText }}</text>
         <text v-if="activity.replyNote" class="meta">答复：{{ activity.replyNote }}</text>
         <view class="share-row">
-          <button class="ghost" size="mini" open-type="share">发给好友</button>
+          <button class="ghost" hover-class="none" open-type="share">发给好友</button>
         </view>
       </view>
 
@@ -146,7 +146,7 @@ const dishCards = computed(() => {
       extra,
       coverSrc: cover ? absoluteUrl(cover) : '',
       showCover: cover !== '' && !failed,
-      canRemove: current.status === 'open' && item.addedByUserId === myId.value,
+      canRemove: (current.status === 'open' || current.status === 'replied') && item.addedByUserId === myId.value,
     }
   })
 })
@@ -355,12 +355,18 @@ function preview(url?: string | null) {
   })
 }
 
+function enableShare() {
+  uni.showShareMenu({ menus: ['shareAppMessage'] })
+}
+
 onLoad((query) => {
   activityId = Number(query?.id) || 0
   shareCode = typeof query?.code === 'string' ? query.code : ''
+  enableShare()
 })
 
 onShow(() => {
+  enableShare()
   if (activityId || shareCode) {
     void load()
   }
@@ -519,9 +525,19 @@ onShareAppMessage(() => ({
 }
 
 .ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 36px;
+  line-height: 36px;
+  padding: 0 16px;
   background: #e6f0eb;
   color: #3d6f5c;
   margin: 0;
+}
+
+.ghost::after {
+  border: none;
 }
 
 .danger {
