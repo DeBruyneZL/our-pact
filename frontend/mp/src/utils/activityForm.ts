@@ -1,6 +1,9 @@
 /** 人数选项：1～6，默认 1。 */
 export const PEOPLE_OPTIONS = ['1人', '2人', '3人', '4人', '5人', '6人']
 
+/** 发起活动时的默认地点，可改。 */
+export const DEFAULT_ACTIVITY_LOCATION = '喝茶干部家'
+
 export function pad2(value: number) {
   return String(value).padStart(2, '0')
 }

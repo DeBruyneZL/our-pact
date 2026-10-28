@@ -9,21 +9,17 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
+import { readWindowMetrics } from '@/utils/windowMetrics'
 
 const statusBarHeight = ref(20)
 const navBarHeight = ref(44)
 
-try {
-  const windowInfo = uni.getWindowInfo?.()
-  statusBarHeight.value = windowInfo?.statusBarHeight || uni.getSystemInfoSync().statusBarHeight || 20
-  const menu = uni.getMenuButtonBoundingClientRect?.()
-  if (menu?.height && menu.top) {
-    navBarHeight.value = (menu.top - statusBarHeight.value) * 2 + menu.height
-  }
-} catch {
-  // 开发态兜底
-}
+onMounted(() => {
+  const metrics = readWindowMetrics()
+  statusBarHeight.value = metrics.statusBarHeight
+  navBarHeight.value = metrics.navBarHeight
+})
 
 function goMenu() {
   uni.switchTab({ url: '/pages/menu/menu' })

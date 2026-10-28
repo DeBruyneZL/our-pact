@@ -59,7 +59,7 @@
     </view>
     </view>
 
-    <view v-if="cartText && !showList" class="cart-bar">
+    <view v-if="cartText && !showList" class="cart-bar" :style="cartBarStyle">
       <view class="cart-main" @tap="openCartSheet">
         <text class="cart-count">{{ cartText }}</text>
         <text class="cart-hint">点此查看清单</text>
@@ -116,6 +116,7 @@ import PageLoading from '@/components/PageLoading.vue'
 import { absoluteUrl } from '@/config'
 import { useAuthStore } from '@/stores/auth'
 import {
+  DEFAULT_ACTIVITY_LOCATION,
   PEOPLE_OPTIONS,
   assertFutureSchedule,
   defaultActivityName,
@@ -123,6 +124,7 @@ import {
   todayText,
 } from '@/utils/activityForm'
 import { setTabBarHidden, syncTabBar } from '@/utils/tabBar'
+import { readWindowMetrics } from '@/utils/windowMetrics'
 
 interface SelectedSummary {
   id: number
@@ -145,7 +147,7 @@ const submitting = ref(false)
 const activityName = ref('')
 const activityDate = ref('')
 const activityTime = ref('18:00')
-const activityLocation = ref('')
+const activityLocation = ref(DEFAULT_ACTIVITY_LOCATION)
 const peopleIndex = ref(0)
 const autoName = ref('')
 const peopleOptions = PEOPLE_OPTIONS
@@ -156,10 +158,12 @@ const addingDishId = ref(0)
 const failedCovers = reactive<Record<number, boolean>>({})
 const selected = reactive<Record<number, boolean>>({})
 const paneHeight = ref(480)
+const cartBarBottom = ref(66)
 const PENDING_KEY = 'our-pact.pending-activity'
 const loadingText = '加载中'
 const checkMark = CHECK_MARK
 const paneStyle = computed(() => ({ height: `${paneHeight.value}px` }))
+const cartBarStyle = computed(() => ({ bottom: `${cartBarBottom.value}px` }))
 
 const addingTitle = computed(() => pendingActivity.value?.title || '活动')
 const addingBar = computed(() => {
@@ -261,31 +265,18 @@ async function load() {
   }
 }
 
-function navMetrics() {
-  const sys = uni.getSystemInfoSync()
-  const statusBar = sys.statusBarHeight || 20
-  let navBar = 44
-  try {
-    const menu = uni.getMenuButtonBoundingClientRect?.()
-    if (menu?.height && menu.top) {
-      navBar = (menu.top - statusBar) * 2 + menu.height
-    }
-  } catch {
-    // ignore
-  }
-  return {
-    windowHeight: sys.windowHeight || 667,
-    brandNav: statusBar + navBar,
-  }
-}
-
 /** scroll-view 必须有明确像素高度，否则在微信里会塌缩/把底栏顶上去。 */
 function updatePaneHeight() {
-  const { windowHeight, brandNav } = navMetrics()
-  const tabBar = 56
+  const { windowHeight, statusBarHeight, navBarHeight, tabBarHeight } = readWindowMetrics()
+  const brandNav = statusBarHeight + navBarHeight
+  // 购物车条抬到自定义 tabBar（含底部安全区）之上，避免遮挡
+  cartBarBottom.value = tabBarHeight + 10
   const banner = pendingActivity.value ? 42 : 0
   const cart = cartText.value && !showList.value ? 58 : 0
-  paneHeight.value = Math.max(windowHeight - brandNav - tabBar - banner - cart, 200)
+  paneHeight.value = Math.max(
+    windowHeight - brandNav - tabBarHeight - banner - cart,
+    200,
+  )
 }
 
 function onCoverError(dishId: number) {
@@ -318,6 +309,9 @@ function openCreateFromCart() {
     activityDate.value = todayText()
   }
   syncAutoName(activityDate.value)
+  if (!activityLocation.value.trim()) {
+    activityLocation.value = DEFAULT_ACTIVITY_LOCATION
+  }
   createMode.value = true
   showList.value = true
 }
@@ -470,7 +464,7 @@ async function onCreate() {
     clearSelection()
     activityName.value = ''
     autoName.value = ''
-    activityLocation.value = ''
+    activityLocation.value = DEFAULT_ACTIVITY_LOCATION
     peopleIndex.value = 0
     uni.navigateTo({ url: `/pages/activity/detail?id=${created.id}` })
   } catch (error) {
@@ -723,7 +717,8 @@ onShow(() => {
   position: fixed;
   left: 12px;
   right: 12px;
-  bottom: 66px;
+  /* bottom 由 cartBarStyle 按 tabBar + 安全区动态计算 */
+  bottom: calc(56px + env(safe-area-inset-bottom) + 10px);
   background: #2c2a26;
   color: #fff;
   border-radius: 999px;

@@ -81,7 +81,7 @@
             </view>
             <text v-if="row.moreText" class="stack-more">{{ row.moreText }}</text>
           </view>
-          <view class="dish">
+          <view class="dish dish-in-repeat">
             <image
               v-if="row.showCover"
               class="thumb"
@@ -706,6 +706,7 @@ onShareAppMessage(() => ({
 .people-avatars {
   display: flex;
   align-items: center;
+  height: 32px;
   padding-left: 8px;
   margin-top: 4px;
   flex-shrink: 0;
@@ -716,6 +717,7 @@ onShareAppMessage(() => ({
   color: #3d6f5c;
   font-size: 13px;
   font-weight: 700;
+  line-height: 32px;
 }
 
 .empty-photo {
@@ -723,6 +725,9 @@ onShareAppMessage(() => ({
 }
 
 .repeat-dish {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   margin-top: 10px;
   padding-top: 8px;
   border-top: 1px solid #efeae2;
@@ -731,13 +736,26 @@ onShareAppMessage(() => ({
 .avatar-stack {
   display: flex;
   align-items: center;
+  flex-shrink: 0;
+  height: 32px;
   padding-left: 8px;
-  margin-bottom: 6px;
+}
+
+.dish-in-repeat {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border-top: none;
 }
 
 .stack-item {
   margin-left: -8px;
   position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 32px;
 }
 
 .stack-avatar {
@@ -747,6 +765,8 @@ onShareAppMessage(() => ({
   border: 2px solid #fffcf7;
   background: #dce9e1;
   box-sizing: border-box;
+  display: block;
+  flex-shrink: 0;
 }
 
 .stack-fallback {
@@ -756,6 +776,7 @@ onShareAppMessage(() => ({
   color: #3d6f5c;
   font-size: 12px;
   font-weight: 700;
+  line-height: 1;
 }
 
 .stack-more {
@@ -763,6 +784,7 @@ onShareAppMessage(() => ({
   color: #8a8680;
   font-size: 12px;
   font-weight: 600;
+  line-height: 32px;
 }
 
 .person-avatar {

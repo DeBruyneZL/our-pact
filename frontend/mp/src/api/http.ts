@@ -33,6 +33,13 @@ function recoverLogin(): Promise<void> {
   return recovering
 }
 
+function isUnauthorized(statusCode: number, body: ApiResult<unknown> | null): boolean {
+  if (statusCode === 401) {
+    return true
+  }
+  return Boolean(body && body.code === 401)
+}
+
 function request<T>(method: 'GET' | 'POST', url: string, data: unknown, retried: boolean): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const token = getToken()
@@ -42,19 +49,19 @@ function request<T>(method: 'GET' | 'POST', url: string, data: unknown, retried:
       data,
       header: token ? { Authorization: token } : {},
       success: (res) => {
-        const body = res.data as ApiResult<T>
+        const body = (res.data || null) as ApiResult<T> | null
+        if (isUnauthorized(res.statusCode || 0, body) && !retried && onUnauthorized) {
+          recoverLogin()
+            .then(() => request<T>(method, url, data, true))
+            .then(resolve, reject)
+          return
+        }
         if (!body || typeof body.code !== 'number') {
           reject(new Error('网络异常，请确认后端已启动'))
           return
         }
         if (body.code === 0) {
           resolve(body.data)
-          return
-        }
-        if (body.code === 401 && !retried && onUnauthorized) {
-          recoverLogin()
-            .then(() => request<T>(method, url, data, true))
-            .then(resolve, reject)
           return
         }
         reject(new Error(body.message || '请求失败'))

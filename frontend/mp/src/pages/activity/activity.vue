@@ -59,6 +59,7 @@ import DateTimeField from '@/components/DateTimeField.vue'
 import PageLoading from '@/components/PageLoading.vue'
 import { useAuthStore } from '@/stores/auth'
 import {
+  DEFAULT_ACTIVITY_LOCATION,
   PEOPLE_OPTIONS,
   assertFutureSchedule,
   defaultActivityName,
@@ -76,7 +77,7 @@ const submitting = ref(false)
 const activityName = ref('')
 const activityDate = ref('')
 const activityTime = ref('18:00')
-const activityLocation = ref('')
+const activityLocation = ref(DEFAULT_ACTIVITY_LOCATION)
 const peopleIndex = ref(0)
 const autoName = ref('')
 
@@ -146,6 +147,9 @@ function openCreate() {
     activityDate.value = minDate.value
   }
   syncAutoName(activityDate.value)
+  if (!activityLocation.value.trim()) {
+    activityLocation.value = DEFAULT_ACTIVITY_LOCATION
+  }
   peopleIndex.value = 0
   showCreate.value = true
 }
@@ -207,7 +211,7 @@ async function onCreate() {
     showCreate.value = false
     activityName.value = ''
     autoName.value = ''
-    activityLocation.value = ''
+    activityLocation.value = DEFAULT_ACTIVITY_LOCATION
     peopleIndex.value = 0
     uni.navigateTo({ url: `/pages/activity/detail?id=${created.id}` })
   } catch (error) {

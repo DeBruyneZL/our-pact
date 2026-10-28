@@ -10,7 +10,6 @@ export const useAuthStore = defineStore('auth', () => {
   const token = ref(getToken())
   const profile = ref<UserProfile | null>(null)
   let loadedFor = ''
-  let logging = false
 
   const displayName = computed(() => profile.value?.nickname || profile.value?.username || '用户')
   /** 进行中的登录。并发调用共用这一次，避免后到的请求拿不到新令牌。 */
@@ -37,7 +36,6 @@ export const useAuthStore = defineStore('auth', () => {
     if (pendingLogin) {
       return pendingLogin
     }
-    logging = true
     pendingLogin = (async () => {
       const code = await wxLoginCode()
       const result = await wxappLogin(code)
@@ -46,20 +44,28 @@ export const useAuthStore = defineStore('auth', () => {
       profile.value = await fetchCurrentUser()
       loadedFor = result.token
     })().finally(() => {
-      logging = false
       pendingLogin = null
     })
     return pendingLogin
   }
 
-  /** 确认已登录；页面取数据前调用。 */
+  /**
+   * 确认已登录；页面取数据前调用。
+   * 必须等待 App 冷启动中的 silentLogin，避免带着过期 token 先打菜单接口。
+   */
   async function ensureLogin(): Promise<void> {
-    if (!getToken()) {
+    if (pendingLogin) {
+      await pendingLogin
+      return
+    }
+    // 无令牌，或冷启动尚未换新会话：先静默登录再请求业务接口
+    if (!getToken() || !profile.value) {
       await silentLogin()
     }
   }
 
   async function loadProfile(force = false): Promise<void> {
+    await ensureLogin()
     if (!force && profile.value && loadedFor === getToken()) {
       return
     }
@@ -83,6 +89,8 @@ export const useAuthStore = defineStore('auth', () => {
   setUnauthorizedCallback(async () => {
     clearToken()
     token.value = ''
+    profile.value = null
+    loadedFor = ''
     await silentLogin()
   })
 

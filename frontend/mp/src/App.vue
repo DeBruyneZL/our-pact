@@ -4,9 +4,11 @@ import { useAuthStore } from '@/stores/auth'
 
 const auth = useAuthStore()
 
-// 小程序冷启动即静默登录，用户无感知
+// 冷启动先换新 token；各页 ensureLogin 会等这次完成，避免旧令牌打出 401
 onLaunch(() => {
-  void auth.silentLogin()
+  void auth.silentLogin().catch(() => {
+    // 登录失败留给页面 ensureLogin 再试，避免打断启动
+  })
 })
 </script>
 
