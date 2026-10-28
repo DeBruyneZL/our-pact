@@ -1,6 +1,9 @@
 <template>
   <view class="page">
-    <view v-if="errorMessage" class="error">{{ errorMessage }}</view>
+    <BrandNav />
+    <view class="body">
+    <PageLoading v-if="pageLoading" tip="加载中" />
+    <view v-else-if="errorMessage" class="error">{{ errorMessage }}</view>
 
     <template v-else-if="hasProfile">
       <template v-if="editing">
@@ -64,6 +67,7 @@
         <button class="edit-btn" @tap="editing = true">编辑资料</button>
       </template>
     </template>
+    </view>
   </view>
 </template>
 
@@ -72,8 +76,11 @@ import { onShow } from '@dcloudio/uni-app'
 import { computed, getCurrentInstance, ref } from 'vue'
 import { PHONE_PATTERN } from '@our-pact/shared/pure'
 import { updateProfile, uploadAvatar } from '@/api/auth'
+import BrandNav from '@/components/BrandNav.vue'
+import PageLoading from '@/components/PageLoading.vue'
 import { absoluteUrl } from '@/config'
 import { useAuthStore } from '@/stores/auth'
+import { syncTabBar } from '@/utils/tabBar'
 
 interface FieldEvent {
   detail?: { value?: string; pass?: boolean }
@@ -88,6 +95,7 @@ const page = getCurrentInstance()
 const savedName = ref('')
 const phoneInput = ref('')
 const errorMessage = ref('')
+const pageLoading = ref(false)
 /** 默认只读展示，点「编辑资料」才进入编辑。 */
 const editing = ref(false)
 let saving = false
@@ -116,6 +124,7 @@ function isPlaceholderName(name?: string | null) {
 }
 
 async function loadProfile() {
+  pageLoading.value = !hasProfile.value
   errorMessage.value = ''
   try {
     await auth.ensureLogin()
@@ -124,6 +133,8 @@ async function loadProfile() {
     phoneInput.value = auth.profile?.phone || ''
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : '获取用户失败'
+  } finally {
+    pageLoading.value = false
   }
 }
 
@@ -230,6 +241,7 @@ async function changeAvatar(filePath: string) {
 }
 
 onShow(() => {
+  syncTabBar(2)
   editing.value = false
   void loadProfile()
 })
@@ -238,8 +250,11 @@ onShow(() => {
 <style scoped>
 .page {
   min-height: 100vh;
-  padding: 24px 16px;
   box-sizing: border-box;
+}
+
+.body {
+  padding: 24px 16px calc(24px + 56px + env(safe-area-inset-bottom));
 }
 
 .error {

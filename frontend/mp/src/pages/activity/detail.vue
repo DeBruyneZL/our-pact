@@ -1,6 +1,8 @@
 <template>
   <view class="page">
-    <view v-if="loading" class="center">加载中</view>
+    <BrandNav />
+    <view class="body">
+    <PageLoading v-if="loading" />
     <view v-else-if="errorMessage" class="center">{{ errorMessage }}</view>
     <template v-else-if="activity">
       <view class="card">
@@ -11,7 +13,19 @@
         <text class="meta">{{ whenText }}</text>
         <view class="people-row">
           <text class="meta">{{ peopleText }}</text>
-          <text class="people-btn" @tap="showPeople = true">参加人</text>
+          <view class="people-avatars" @tap="showPeople = true">
+            <view
+              v-for="(person, index) in participantAvatars"
+              :key="person.id"
+              class="stack-item"
+              :style="{ zIndex: participantAvatars.length - index }"
+            >
+              <image v-if="person.showAvatar" class="stack-avatar" :src="person.avatarSrc" mode="aspectFill" />
+              <view v-else class="stack-avatar stack-fallback">{{ person.initial }}</view>
+            </view>
+            <text v-if="participantMoreText" class="stack-more">{{ participantMoreText }}</text>
+            <text v-else class="people-btn">参加人</text>
+          </view>
         </view>
         <text v-if="activity.replyNote" class="meta">答复：{{ activity.replyNote }}</text>
         <view class="share-row">
@@ -21,20 +35,22 @@
 
       <view v-if="showJoin" class="card">
         <text class="section">确认参加</text>
-        <text class="meta">先看活动内容。确认后才能加菜。自己来填 1，有人一起就改人数。</text>
-        <input v-model="joinCount" class="field" type="number" />
+        <text class="meta">先看活动内容。确认后才能加菜。选择你这边几个人来。</text>
+        <picker mode="selector" :range="peopleOptions" :value="joinIndex" @change="onJoinPeopleChange">
+          <view class="field">{{ joinPeopleLabel }}</view>
+        </picker>
         <button class="primary" @tap="onJoin">确认参加</button>
       </view>
 
       <view v-if="activity.canEdit" class="card">
         <text class="section">修改活动</text>
+        <DateTimeField
+          v-model:date="editDate"
+          v-model:time="editTime"
+          :min-date="minDate"
+          @change="onEditDateTimeChange"
+        />
         <input v-model="editName" class="field" placeholder="活动名称" />
-        <picker mode="date" :value="editDate" @change="onDateChange">
-          <view class="field">{{ editDate || '选择日期' }}</view>
-        </picker>
-        <picker mode="time" :value="editTime" @change="onTimeChange">
-          <view class="field">{{ editTime || '选择时间' }}</view>
-        </picker>
         <input v-model="editLocation" class="field" placeholder="地点" />
         <button class="primary" :disabled="saving" @tap="onSave">保存修改</button>
       </view>
@@ -42,7 +58,7 @@
       <view class="card">
         <text class="section">菜品</text>
         <view v-if="emptyDishText" class="meta">{{ emptyDishText }}</view>
-        <view v-for="row in sharedCards" :key="row.id" class="dish">
+        <view v-for="row in sharedCards" :key="'s-' + row.id" class="dish">
           <image
             v-if="row.showCover"
             class="thumb"
@@ -57,34 +73,36 @@
           </view>
           <text v-if="row.canRemove" class="remove" @tap="onRemove(row.id)">移除</text>
         </view>
-        <view v-for="group in orderGroups" :key="group.id" class="order">
-          <view class="order-head">
-            <image v-if="group.showAvatar" class="mini-avatar" :src="group.avatarSrc" mode="aspectFill" />
-            <view v-else class="mini-avatar mini-fallback">{{ group.initial }}</view>
-            <text class="order-title">{{ group.title }}</text>
+        <view v-for="row in repeatCards" :key="'r-' + row.key" class="repeat-dish">
+          <view class="avatar-stack">
+            <view v-for="(person, index) in row.avatars" :key="person.id" class="stack-item" :style="{ zIndex: row.avatars.length - index }">
+              <image v-if="person.showAvatar" class="stack-avatar" :src="person.avatarSrc" mode="aspectFill" />
+              <view v-else class="stack-avatar stack-fallback">{{ person.initial }}</view>
+            </view>
+            <text v-if="row.moreText" class="stack-more">{{ row.moreText }}</text>
           </view>
-          <view v-for="row in group.dishes" :key="row.id" class="dish">
+          <view class="dish">
             <image
               v-if="row.showCover"
               class="thumb"
               :src="row.coverSrc"
               mode="aspectFill"
-              @error="onThumbError(row.id)"
+              @error="onThumbError(row.thumbId)"
             />
             <view v-else class="thumb thumb-empty">暂无</view>
             <view class="dish-main">
               <text class="dish-title">{{ row.title }}</text>
               <text v-if="row.extra" class="dish-meta">{{ row.extra }}</text>
             </view>
-            <text v-if="row.canRemove" class="remove" @tap="onRemove(row.id)">移除</text>
+            <text v-if="row.canRemove && row.myItemId" class="remove" @tap="onRemove(row.myItemId)">移除</text>
           </view>
         </view>
         <button v-if="canAddDish" class="primary" @tap="goAddDish">去加菜</button>
       </view>
 
-      <view v-if="activity.photos.length || activity.canUpload" class="card">
+      <view v-if="showEatFirst" class="card">
         <text class="section">手机先吃</text>
-        <view class="photos">
+        <view v-if="activity.photos.length" class="photos">
           <image
             v-for="photo in activity.photos"
             :key="photo.id"
@@ -94,11 +112,14 @@
             @tap="preview(photo.url)"
           />
         </view>
+        <view v-else class="empty-photo">
+          <text class="meta">还没有照片，先上传一张吧</text>
+        </view>
         <button v-if="activity.canUpload" class="primary" @tap="onUpload">上传照片</button>
       </view>
 
       <view v-if="activity.canWithdraw || activity.canComplete" class="actions">
-        <button v-if="activity.canComplete" class="primary" @tap="onComplete">手机先吃</button>
+        <button v-if="activity.canComplete" class="primary" @tap="onComplete">已参加</button>
         <button v-if="activity.canWithdraw" class="danger" @tap="onWithdraw">撤回</button>
       </view>
 
@@ -117,6 +138,7 @@
         </view>
       </view>
     </template>
+    </view>
   </view>
 </template>
 
@@ -134,8 +156,18 @@ import {
   uploadActivityPhoto,
   withdrawActivity,
 } from '@/api/activity'
+import BrandNav from '@/components/BrandNav.vue'
+import DateTimeField from '@/components/DateTimeField.vue'
+import PageLoading from '@/components/PageLoading.vue'
 import { absoluteUrl } from '@/config'
 import { useAuthStore } from '@/stores/auth'
+import {
+  PEOPLE_OPTIONS,
+  assertFutureSchedule,
+  defaultActivityName,
+  peopleCountOf,
+  todayText,
+} from '@/utils/activityForm'
 
 const PENDING_KEY = 'our-pact.pending-activity'
 
@@ -149,8 +181,12 @@ const editName = ref('')
 const editDate = ref('')
 const editTime = ref('')
 const editLocation = ref('')
-const joinCount = ref('1')
+const joinIndex = ref(0)
 const showPeople = ref(false)
+const peopleOptions = PEOPLE_OPTIONS
+const minDate = computed(() => todayText())
+const joinPeopleLabel = computed(() => peopleOptions[joinIndex.value] || '1人')
+const editAutoName = ref('')
 let activityId = 0
 let shareCode = ''
 
@@ -161,6 +197,27 @@ interface DishCard {
   coverSrc: string
   showCover: boolean
   canRemove: boolean
+}
+
+interface StackPerson {
+  id: number
+  title: string
+  avatarSrc: string
+  showAvatar: boolean
+  initial: string
+}
+
+interface RepeatDishCard {
+  key: string
+  thumbId: number
+  title: string
+  extra: string
+  coverSrc: string
+  showCover: boolean
+  canRemove: boolean
+  myItemId: number | null
+  avatars: StackPerson[]
+  moreText: string
 }
 
 const myId = computed(() => auth.profile?.id)
@@ -181,6 +238,14 @@ const peopleText = computed(() => {
   return `共 ${current.totalPeople || 0} 人`
 })
 const canAddDish = computed(() => Boolean(activity.value?.canAdd))
+/** 邀请阶段不展示手机先吃；点「已参加」完成活动后才出现。 */
+const showEatFirst = computed(() => {
+  const current = activity.value
+  if (!current) {
+    return false
+  }
+  return current.status === 'completed' && (current.photos.length > 0 || Boolean(current.canUpload))
+})
 const personCards = computed(() => {
   const current = activity.value
   if (!current) {
@@ -199,6 +264,16 @@ const personCards = computed(() => {
     }
   })
 })
+const participantAvatars = computed(() => personCards.value.slice(0, 6).map((person) => ({
+  id: person.id,
+  avatarSrc: person.avatarSrc,
+  showAvatar: person.showAvatar,
+  initial: person.initial,
+})))
+const participantMoreText = computed(() => {
+  const total = personCards.value.length
+  return total > 6 ? `...等${total}人` : ''
+})
 const emptyDishText = computed(() => {
   const current = activity.value
   if (!current || current.items.length) {
@@ -213,46 +288,58 @@ const sharedCards = computed(() => {
   }
   return current.items.filter((item) => !item.allowRepeat).map((item) => toDishCard(current, item, true))
 })
-const orderGroups = computed(() => {
+const repeatCards = computed(() => {
   const current = activity.value
   if (!current) {
-    return [] as Array<{
-      id: number
-      title: string
-      avatarSrc: string
-      showAvatar: boolean
-      initial: string
-      dishes: DishCard[]
-    }>
+    return [] as RepeatDishCard[]
   }
-  const groups = new Map<number, DishCard[]>()
-  const names = new Map<number, { title: string; avatarSrc: string }>()
+  const groups = new Map<string, ActivityItem[]>()
   for (const item of current.items) {
     if (!item.allowRepeat) {
       continue
     }
-    const userId = item.addedByUserId
-    const list = groups.get(userId) || []
-    list.push(toDishCard(current, item, false))
-    groups.set(userId, list)
-    if (!names.has(userId)) {
-      const person = current.participants.find((entry) => entry.id === userId)
+    const key = item.dishId != null ? `dish-${item.dishId}` : `item-${item.id}`
+    const list = groups.get(key) || []
+    list.push(item)
+    groups.set(key, list)
+  }
+  return [...groups.entries()].map(([key, items]) => {
+    const first = items[0]
+    const people = new Map<number, StackPerson>()
+    for (const item of items) {
+      if (people.has(item.addedByUserId)) {
+        continue
+      }
+      const person = current.participants.find((entry) => entry.id === item.addedByUserId)
       const title = person?.name || item.addedByUserName || '未命名'
       const avatar = person?.avatar || item.addedByUserAvatar
-      names.set(userId, { title, avatarSrc: avatar ? absoluteUrl(avatar) : '' })
+      const avatarSrc = avatar ? absoluteUrl(avatar) : ''
+      people.set(item.addedByUserId, {
+        id: item.addedByUserId,
+        title,
+        avatarSrc,
+        showAvatar: Boolean(avatarSrc),
+        initial: title.slice(0, 1),
+      })
     }
-  }
-  return [...groups.entries()].map(([id, dishes]) => {
-    const info = names.get(id)
-    const title = info?.title || '未命名'
-    const avatarSrc = info?.avatarSrc || ''
+    const allPeople = [...people.values()]
+    const visible = allPeople.slice(0, 5)
+    const mine = items.find((item) => item.addedByUserId === myId.value)
+    const cover = typeof first.dishImageUrl === 'string' ? first.dishImageUrl : ''
+    const failed = failedThumbs[first.id] === true
     return {
-      id,
-      title: `${title}点的`,
-      avatarSrc,
-      showAvatar: Boolean(avatarSrc),
-      initial: title.slice(0, 1),
-      dishes,
+      key,
+      thumbId: first.id,
+      title: typeof first.dishName === 'string' && first.dishName ? first.dishName : '未命名菜品',
+      extra: itemText(first),
+      coverSrc: cover ? absoluteUrl(cover) : '',
+      showCover: cover !== '' && !failed,
+      canRemove: Boolean(
+        mine && (current.status === 'open' || current.status === 'replied'),
+      ),
+      myItemId: mine?.id ?? null,
+      avatars: visible,
+      moreText: allPeople.length > 5 ? `...等${allPeople.length}人` : '',
     }
   })
 })
@@ -304,6 +391,7 @@ function fillEdit(current: Activity) {
   editDate.value = text.slice(0, 10)
   editTime.value = text.slice(11, 16)
   editLocation.value = current.location
+  editAutoName.value = defaultActivityName(editDate.value)
 }
 
 async function load() {
@@ -326,12 +414,19 @@ async function load() {
   }
 }
 
-function onDateChange(event: { detail: { value: string } }) {
-  editDate.value = event.detail.value
+function onEditDateTimeChange(payload: { date: string; time: string }) {
+  if (!payload.date) {
+    return
+  }
+  const next = defaultActivityName(payload.date)
+  if (!editName.value || editName.value === editAutoName.value) {
+    editName.value = next
+  }
+  editAutoName.value = next
 }
 
-function onTimeChange(event: { detail: { value: string } }) {
-  editTime.value = event.detail.value
+function onJoinPeopleChange(event: { detail: { value: string } }) {
+  joinIndex.value = Number(event.detail.value) || 0
 }
 
 async function onSave() {
@@ -340,6 +435,12 @@ async function onSave() {
   }
   if (!editName.value.trim() || !editDate.value || !editTime.value || !editLocation.value.trim()) {
     uni.showToast({ title: '请填写名称、时间和地点', icon: 'none' })
+    return
+  }
+  try {
+    assertFutureSchedule(editDate.value, editTime.value)
+  } catch (error) {
+    uni.showToast({ title: error instanceof Error ? error.message : '时间无效', icon: 'none' })
     return
   }
   saving.value = true
@@ -390,13 +491,8 @@ async function onJoin() {
   if (!activity.value) {
     return
   }
-  const count = Number(joinCount.value)
-  if (!Number.isInteger(count) || count < 1 || count > 20) {
-    uni.showToast({ title: '人数请填 1 到 20', icon: 'none' })
-    return
-  }
   try {
-    activity.value = await joinActivity(activity.value.shareCode, count)
+    activity.value = await joinActivity(activity.value.shareCode, peopleCountOf(joinIndex.value))
     uni.showToast({ title: '已确认参加', icon: 'success' })
   } catch (error) {
     uni.showToast({ title: error instanceof Error ? error.message : '加入失败', icon: 'none' })
@@ -429,15 +525,15 @@ function onComplete() {
     return
   }
   uni.showModal({
-    title: '手机先吃',
-    content: '完成后不能再加菜，参与人可以上传照片',
+    title: '确认已参加',
+    content: '确认后不能再加菜，可以上传「手机先吃」照片',
     success: async (res) => {
       if (!res.confirm || !activity.value) {
         return
       }
       try {
         activity.value = await completeActivity(activity.value.id)
-        uni.showToast({ title: '已完成', icon: 'success' })
+        uni.showToast({ title: '已参加', icon: 'success' })
       } catch (error) {
         uni.showToast({ title: error instanceof Error ? error.message : '操作失败', icon: 'none' })
       }
@@ -502,8 +598,11 @@ onShareAppMessage(() => ({
 <style scoped>
 .page {
   min-height: 100vh;
-  padding: 12px 12px 28px;
   box-sizing: border-box;
+}
+
+.body {
+  padding: 12px 12px 28px;
 }
 
 .center {
@@ -604,49 +703,82 @@ onShareAppMessage(() => ({
   margin-top: 6px;
 }
 
-.people-btn {
+.people-avatars {
+  display: flex;
+  align-items: center;
+  padding-left: 8px;
+  margin-top: 4px;
   flex-shrink: 0;
-  margin-top: 6px;
+}
+
+.people-btn {
+  margin-left: 8px;
   color: #3d6f5c;
   font-size: 13px;
   font-weight: 700;
 }
 
-.order {
-  margin-top: 8px;
+.empty-photo {
+  padding: 8px 0 4px;
+}
+
+.repeat-dish {
+  margin-top: 10px;
   padding-top: 8px;
   border-top: 1px solid #efeae2;
 }
 
-.order-head {
+.avatar-stack {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 4px 0 2px;
+  padding-left: 8px;
+  margin-bottom: 6px;
 }
 
-.order-title {
-  font-size: 13px;
-  font-weight: 700;
-  color: #3d6f5c;
+.stack-item {
+  margin-left: -8px;
+  position: relative;
 }
 
-.mini-avatar,
-.person-avatar {
+.stack-avatar {
   width: 28px;
   height: 28px;
   border-radius: 50%;
+  border: 2px solid #fffcf7;
   background: #dce9e1;
-  flex-shrink: 0;
+  box-sizing: border-box;
 }
 
-.mini-fallback,
-.person-fallback {
+.stack-fallback {
   display: flex;
   align-items: center;
   justify-content: center;
   color: #3d6f5c;
   font-size: 12px;
+  font-weight: 700;
+}
+
+.stack-more {
+  margin-left: 8px;
+  color: #8a8680;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.person-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #dce9e1;
+  flex-shrink: 0;
+}
+
+.person-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #3d6f5c;
+  font-size: 16px;
   font-weight: 700;
 }
 

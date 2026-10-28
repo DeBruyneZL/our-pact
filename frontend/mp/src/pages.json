@@ -3,30 +3,34 @@
     {
       "path": "pages/menu/menu",
       "style": {
-        "navigationBarTitleText": "今天想吃什么"
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "点菜"
       }
     },
     {
       "path": "pages/mine/mine",
       "style": {
+        "navigationStyle": "custom",
         "navigationBarTitleText": "我的"
       }
     },
     {
       "path": "pages/activity/activity",
       "style": {
+        "navigationStyle": "custom",
         "navigationBarTitleText": "活动"
       }
     },
     {
       "path": "pages/activity/detail",
       "style": {
-        "navigationBarTitleText": "活动详情",
-        "enableShareAppMessage": true
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "活动详情"
       }
     }
   ],
   "tabBar": {
+    "custom": true,
     "color": "#5c5852",
     "selectedColor": "#3d6f5c",
     "backgroundColor": "#fffcf7",
@@ -34,22 +38,28 @@
     "list": [
       {
         "pagePath": "pages/menu/menu",
-        "text": "点菜"
+        "text": "点菜",
+        "iconPath": "static/tab/menu.png",
+        "selectedIconPath": "static/tab/menu-active.png"
       },
       {
         "pagePath": "pages/activity/activity",
-        "text": "活动"
+        "text": "活动",
+        "iconPath": "static/tab/activity.png",
+        "selectedIconPath": "static/tab/activity-active.png"
       },
       {
         "pagePath": "pages/mine/mine",
-        "text": "我的"
+        "text": "我的",
+        "iconPath": "static/tab/mine.png",
+        "selectedIconPath": "static/tab/mine-active.png"
       }
     ]
   },
   "globalStyle": {
     "navigationBarBackgroundColor": "#fffcf7",
     "navigationBarTextStyle": "black",
-    "navigationBarTitleText": "我们的约定",
+    "navigationBarTitleText": "饭否",
     "backgroundColor": "#f7f5f0"
   }
 }

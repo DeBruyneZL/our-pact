@@ -1,39 +1,47 @@
 <template>
   <view class="page">
-    <view class="page-head">
-      <text class="head-title">活动</text>
-      <text v-if="countText" class="head-count">{{ countText }}</text>
-      <view class="create-btn" @tap="showCreate = true">发起</view>
-    </view>
-
-    <view v-if="loading" class="center">{{ loadingText }}</view>
-    <view v-else-if="statusText" class="center">{{ statusText }}</view>
-    <view
-      v-for="row in activityCards"
-      :key="row.id"
-      class="card"
-      @tap="openDetail(row.id)"
-    >
-      <view class="row">
-        <text class="title">{{ row.title }}</text>
-        <text :class="row.statusSkin">{{ row.status }}</text>
+    <BrandNav />
+    <view class="body">
+      <view class="page-head">
+        <text class="head-title">活动</text>
+        <text v-if="countText" class="head-count">{{ countText }}</text>
+        <view class="create-btn" @tap="openCreate">发起</view>
       </view>
-      <text class="meta">{{ row.when }}</text>
-      <text class="meta">{{ row.summary }}</text>
+
+      <PageLoading v-if="loading" :tip="loadingText" />
+      <view v-else-if="statusText" class="center">{{ statusText }}</view>
+      <template v-else>
+        <view
+          v-for="row in activityCards"
+          :key="row.id"
+          class="card"
+          @tap="openDetail(row.id)"
+        >
+          <view class="row">
+            <text class="title">{{ row.title }}</text>
+            <text :class="row.statusSkin">{{ row.status }}</text>
+          </view>
+          <text class="meta">{{ row.when }}</text>
+          <text class="meta">{{ row.summary }}</text>
+        </view>
+      </template>
     </view>
 
     <view v-if="showCreate" class="mask" @tap="showCreate = false">
       <view class="sheet" @tap.stop>
         <text class="sheet-title">发起活动</text>
-        <input v-model="activityName" class="field" placeholder="活动名称（不填自动起名）" placeholder-class="placeholder" />
-        <picker mode="date" :value="activityDate" @change="onDateChange">
-          <view class="field">{{ dateLabel }}</view>
-        </picker>
-        <picker mode="time" :value="activityTime" @change="onTimeChange">
-          <view class="field">{{ timeLabel }}</view>
-        </picker>
+        <DateTimeField
+          v-model:date="activityDate"
+          v-model:time="activityTime"
+          :min-date="minDate"
+          @change="onDateTimeChange"
+        />
+        <input v-model="activityName" class="field" placeholder="活动名称" placeholder-class="placeholder" />
         <input v-model="activityLocation" class="field" placeholder="地点" placeholder-class="placeholder" />
-        <input v-model="activityPeople" class="field" type="number" placeholder="几个人，自己来填 1" placeholder-class="placeholder" />
+        <picker mode="selector" :range="peopleOptions" :value="peopleIndex" @change="onPeopleChange">
+          <view class="field">{{ peopleLabel }}</view>
+        </picker>
+        <text class="sheet-note">先填活动信息，发起后再去点菜。</text>
         <button class="create-btn block" :disabled="submitting" @tap="onCreate">确认发起</button>
         <text class="text-link" @tap="showCreate = false">先不发了</text>
       </view>
@@ -46,7 +54,18 @@ import { onShow } from '@dcloudio/uni-app'
 import { computed, ref } from 'vue'
 import type { Activity, ActivityStatus } from '@our-pact/shared'
 import { createActivity, pageMyActivities } from '@/api/activity'
+import BrandNav from '@/components/BrandNav.vue'
+import DateTimeField from '@/components/DateTimeField.vue'
+import PageLoading from '@/components/PageLoading.vue'
 import { useAuthStore } from '@/stores/auth'
+import {
+  PEOPLE_OPTIONS,
+  assertFutureSchedule,
+  defaultActivityName,
+  peopleCountOf,
+  todayText,
+} from '@/utils/activityForm'
+import { syncTabBar } from '@/utils/tabBar'
 
 const auth = useAuthStore()
 const activities = ref<Activity[]>([])
@@ -58,10 +77,13 @@ const activityName = ref('')
 const activityDate = ref('')
 const activityTime = ref('18:00')
 const activityLocation = ref('')
-const activityPeople = ref('1')
+const peopleIndex = ref(0)
+const autoName = ref('')
 
 const loadingText = '加载中'
 const emptyText = '还没有活动，可以先发起，菜之后大家一起加'
+const peopleOptions = PEOPLE_OPTIONS
+const minDate = computed(() => todayText())
 
 const statusText = computed(() => {
   if (errorMessage.value) {
@@ -73,14 +95,12 @@ const statusText = computed(() => {
   return ''
 })
 
-/** 数量预拼成字符串，模板里不要写 .length。 */
 const countText = computed(() => {
   const total = activities.value.length
   return total > 0 ? `${total} 个` : ''
 })
 
-const dateLabel = computed(() => activityDate.value || '选择日期')
-const timeLabel = computed(() => activityTime.value || '选择时间')
+const peopleLabel = computed(() => peopleOptions[peopleIndex.value] || '1人')
 
 const activityCards = computed(() =>
   activities.value.map((item) => {
@@ -105,7 +125,6 @@ function statusLabel(status: ActivityStatus) {
   return { open: '待答复', replied: '已答复', withdrawn: '已撤回', completed: '已完成' }[status]
 }
 
-/** 状态标色：待答复最醒目，已撤回置灰。 */
 function statusClass(status: ActivityStatus) {
   return { open: 'open', replied: 'replied', withdrawn: 'withdrawn', completed: 'completed' }[status]
 }
@@ -114,13 +133,31 @@ function formatWhen(value: string) {
   return (value || '').replace('T', ' ').slice(0, 16)
 }
 
+function syncAutoName(dateText: string) {
+  const next = defaultActivityName(dateText)
+  if (!activityName.value || activityName.value === autoName.value) {
+    activityName.value = next
+  }
+  autoName.value = next
+}
+
+function openCreate() {
+  if (!activityDate.value || activityDate.value < minDate.value) {
+    activityDate.value = minDate.value
+  }
+  syncAutoName(activityDate.value)
+  peopleIndex.value = 0
+  showCreate.value = true
+}
+
 async function load() {
   loading.value = true
   errorMessage.value = ''
   try {
     await auth.ensureLogin()
     const page = await pageMyActivities()
-    activities.value = Array.isArray(page?.list) ? page.list : []
+    const list = Array.isArray(page?.list) ? page.list : []
+    activities.value = list.filter((item) => item.status !== 'withdrawn')
   } catch (error) {
     activities.value = []
     errorMessage.value = error instanceof Error ? error.message : '加载失败'
@@ -133,26 +170,14 @@ function openDetail(id: number) {
   uni.navigateTo({ url: `/pages/activity/detail?id=${id}` })
 }
 
-function onDateChange(event: { detail: { value: string } }) {
-  activityDate.value = event.detail.value
-}
-
-function onTimeChange(event: { detail: { value: string } }) {
-  activityTime.value = event.detail.value
-}
-
-function todayText() {
-  const date = new Date()
-  const pad = (value: number) => String(value).padStart(2, '0')
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
-}
-
-function readPeopleCount(value: string) {
-  const count = Number(value)
-  if (!Number.isInteger(count) || count < 1 || count > 20) {
-    throw new Error('人数请填 1 到 20')
+function onDateTimeChange(payload: { date: string; time: string }) {
+  if (payload.date) {
+    syncAutoName(payload.date)
   }
-  return count
+}
+
+function onPeopleChange(event: { detail: { value: string } }) {
+  peopleIndex.value = Number(event.detail.value) || 0
 }
 
 async function onCreate() {
@@ -163,20 +188,27 @@ async function onCreate() {
     uni.showToast({ title: '请填写时间和地点', icon: 'none' })
     return
   }
+  try {
+    assertFutureSchedule(activityDate.value, activityTime.value)
+  } catch (error) {
+    uni.showToast({ title: error instanceof Error ? error.message : '时间无效', icon: 'none' })
+    return
+  }
   submitting.value = true
   try {
     await auth.ensureLogin()
     const created = await createActivity({
-      name: activityName.value.trim() || undefined,
+      name: activityName.value.trim() || defaultActivityName(activityDate.value),
       scheduledAt: `${activityDate.value}T${activityTime.value}:00`,
       location: activityLocation.value.trim(),
-      peopleCount: readPeopleCount(activityPeople.value),
+      peopleCount: peopleCountOf(peopleIndex.value),
       items: [],
     })
     showCreate.value = false
     activityName.value = ''
+    autoName.value = ''
     activityLocation.value = ''
-    activityPeople.value = '1'
+    peopleIndex.value = 0
     uni.navigateTo({ url: `/pages/activity/detail?id=${created.id}` })
   } catch (error) {
     uni.showToast({ title: error instanceof Error ? error.message : '发起失败', icon: 'none' })
@@ -186,7 +218,8 @@ async function onCreate() {
 }
 
 onShow(() => {
-  if (!activityDate.value) {
+  syncTabBar(1)
+  if (!activityDate.value || activityDate.value < todayText()) {
     activityDate.value = todayText()
   }
   void load()
@@ -196,8 +229,11 @@ onShow(() => {
 <style scoped>
 .page {
   min-height: 100vh;
-  padding: 12px 12px 24px;
   box-sizing: border-box;
+}
+
+.body {
+  padding: 12px 12px calc(24px + 56px + env(safe-area-inset-bottom));
 }
 
 .page-head {
@@ -336,6 +372,14 @@ onShow(() => {
   font-size: 16px;
   font-weight: 700;
   margin-bottom: 12px;
+}
+
+.sheet-note {
+  display: block;
+  margin: 4px 0 8px;
+  color: #8a8680;
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .text-link {

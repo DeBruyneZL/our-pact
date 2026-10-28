@@ -1,6 +1,7 @@
 <template>
   <view class="page">
-    <view v-if="loading" class="center">{{ loadingText }}</view>
+    <BrandNav />
+    <PageLoading v-if="loading" :tip="loadingText" />
     <view v-else-if="loadError" class="center">{{ loadError }}</view>
     <view v-else-if="emptyMenuText" class="center">{{ emptyMenuText }}</view>
 
@@ -59,13 +60,16 @@
     </view>
 
     <view v-if="cartText" class="cart-bar">
-      <text>{{ cartText }}</text>
-      <button class="cart-btn" size="mini" @tap="showList = true">看清单</button>
+      <view class="cart-main" @tap="openCartSheet">
+        <text class="cart-count">{{ cartText }}</text>
+        <text class="cart-hint">点此查看清单</text>
+      </view>
+      <button class="cart-btn" size="mini" @tap.stop="openCreateFromCart">提交</button>
     </view>
 
     <view v-if="showList" class="mask" @tap="showList = false">
       <view class="sheet" @tap.stop>
-        <text class="sheet-title">今日选菜清单</text>
+        <text class="sheet-title">{{ sheetTitle }}</text>
         <scroll-view scroll-y class="sheet-list">
           <view v-for="item in selectedList" :key="item.id" class="sheet-item">
             <view class="sheet-main">
@@ -80,17 +84,19 @@
           <button class="cart-btn sheet-btn" :disabled="submitting" @tap="onAddToActivity">加到活动</button>
           <button class="text-btn" @tap="clearPending">取消加菜</button>
         </template>
-        <template v-else>
-          <input v-model="activityName" class="field" placeholder="活动名称（不填自动起名）" placeholder-class="note-placeholder" />
-          <picker mode="date" :value="activityDate" @change="onDateChange">
-            <view class="field">{{ dateLabel }}</view>
-          </picker>
-          <picker mode="time" :value="activityTime" @change="onTimeChange">
-            <view class="field">{{ timeLabel }}</view>
-          </picker>
+        <template v-else-if="createMode">
+          <DateTimeField
+            v-model:date="activityDate"
+            v-model:time="activityTime"
+            :min-date="minDate"
+            @change="onDateTimeChange"
+          />
+          <input v-model="activityName" class="field" placeholder="活动名称" placeholder-class="note-placeholder" />
           <input v-model="activityLocation" class="field" placeholder="地点" placeholder-class="note-placeholder" />
-          <input v-model="activityPeople" class="field" type="number" placeholder="几个人，自己来填 1" placeholder-class="note-placeholder" />
-          <button class="cart-btn sheet-btn" :disabled="submitting" @tap="onCreate">发起活动</button>
+          <picker mode="selector" :range="peopleOptions" :value="peopleIndex" @change="onPeopleChange">
+            <view class="field">{{ peopleLabel }}</view>
+          </picker>
+          <button class="cart-btn sheet-btn" :disabled="submitting" @tap="onCreate">确认发起</button>
         </template>
         <button class="text-btn" @tap="showList = false">继续挑</button>
       </view>
@@ -104,8 +110,19 @@ import { computed, reactive, ref } from 'vue'
 import type { Dish, DishCategory } from '@our-pact/shared'
 import { addActivityItems, createActivity, getActivity } from '@/api/activity'
 import { listCategories, listDishes } from '@/api/menu'
+import BrandNav from '@/components/BrandNav.vue'
+import DateTimeField from '@/components/DateTimeField.vue'
+import PageLoading from '@/components/PageLoading.vue'
 import { absoluteUrl } from '@/config'
 import { useAuthStore } from '@/stores/auth'
+import {
+  PEOPLE_OPTIONS,
+  assertFutureSchedule,
+  defaultActivityName,
+  peopleCountOf,
+  todayText,
+} from '@/utils/activityForm'
+import { syncTabBar } from '@/utils/tabBar'
 
 interface SelectedSummary {
   id: number
@@ -122,12 +139,17 @@ const activeCategoryId = ref(0)
 const loading = ref(false)
 const loadError = ref('')
 const showList = ref(false)
+/** 清单弹层是否进入「发起活动」表单。 */
+const createMode = ref(false)
 const submitting = ref(false)
 const activityName = ref('')
 const activityDate = ref('')
 const activityTime = ref('18:00')
 const activityLocation = ref('')
-const activityPeople = ref('1')
+const peopleIndex = ref(0)
+const autoName = ref('')
+const peopleOptions = PEOPLE_OPTIONS
+const minDate = computed(() => todayText())
 const pendingActivity = ref<{ id: number; title: string } | null>(null)
 const addedDishIds = ref<number[]>([])
 const addingDishId = ref(0)
@@ -148,8 +170,7 @@ const addingBar = computed(() => {
 })
 const addHint = computed(() => `加到「${addingTitle.value}」。只能加菜，不能改别人的内容。`)
 const emptyMenuText = computed(() => (categories.value.length ? '' : '暂无分类，等管理员配置'))
-const dateLabel = computed(() => activityDate.value || '选择日期')
-const timeLabel = computed(() => activityTime.value || '选择时间')
+const peopleLabel = computed(() => peopleOptions[peopleIndex.value] || '1人')
 
 const selectedCount = computed(() => Object.keys(selected).length)
 const cartText = computed(() => {
@@ -157,6 +178,15 @@ const cartText = computed(() => {
     return ''
   }
   return `已选 ${selectedCount.value} 道`
+})
+const sheetTitle = computed(() => {
+  if (addingBar.value) {
+    return '加菜清单'
+  }
+  if (createMode.value) {
+    return '发起活动'
+  }
+  return '今日选菜清单'
 })
 const filteredDishes = computed(() =>
   dishes.value.filter((dish) => dish.categoryId === activeCategoryId.value),
@@ -233,9 +263,23 @@ async function load() {
 }
 
 function updatePaneHeight() {
-  const windowHeight = uni.getSystemInfoSync().windowHeight
+  const sys = uni.getSystemInfoSync()
+  const windowHeight = sys.windowHeight
+  const statusBar = sys.statusBarHeight || 20
+  let navBar = 44
+  try {
+    const menu = uni.getMenuButtonBoundingClientRect?.()
+    if (menu?.height && menu.top) {
+      navBar = (menu.top - statusBar) * 2 + menu.height
+    }
+  } catch {
+    // ignore
+  }
+  const brandNav = statusBar + navBar
+  const tabBar = 56
+  const cart = selectedCount.value > 0 && !pendingActivity.value ? 58 : 0
   const banner = pendingActivity.value ? 42 : 0
-  paneHeight.value = Math.max(windowHeight - banner, 200)
+  paneHeight.value = Math.max(windowHeight - brandNav - tabBar - cart - banner, 200)
 }
 
 function onCoverError(dishId: number) {
@@ -248,24 +292,55 @@ function onDishTap(dishId: number) {
   }
   if (selected[dishId]) {
     delete selected[dishId]
+  } else {
+    selected[dishId] = true
+  }
+  updatePaneHeight()
+}
+
+function openCartSheet() {
+  createMode.value = false
+  showList.value = true
+}
+
+function openCreateFromCart() {
+  if (selectedCount.value <= 0) {
+    uni.showToast({ title: '先选几道菜', icon: 'none' })
     return
   }
-  selected[dishId] = true
+  if (!activityDate.value || activityDate.value < todayText()) {
+    activityDate.value = todayText()
+  }
+  syncAutoName(activityDate.value)
+  createMode.value = true
+  showList.value = true
 }
 
 function removeDish(dishId: number) {
   delete selected[dishId]
+  updatePaneHeight()
   if (!selectedCount.value) {
     showList.value = false
+    createMode.value = false
   }
 }
 
-function onDateChange(event: { detail: { value: string } }) {
-  activityDate.value = event.detail.value
+function syncAutoName(dateText: string) {
+  const next = defaultActivityName(dateText)
+  if (!activityName.value || activityName.value === autoName.value) {
+    activityName.value = next
+  }
+  autoName.value = next
 }
 
-function onTimeChange(event: { detail: { value: string } }) {
-  activityTime.value = event.detail.value
+function onDateTimeChange(payload: { date: string; time: string }) {
+  if (payload.date) {
+    syncAutoName(payload.date)
+  }
+}
+
+function onPeopleChange(event: { detail: { value: string } }) {
+  peopleIndex.value = Number(event.detail.value) || 0
 }
 
 function storedTitle(value: { title?: unknown; name?: unknown }) {
@@ -343,12 +418,6 @@ function clearPending() {
   pendingActivity.value = null
 }
 
-function todayText() {
-  const date = new Date()
-  const pad = (value: number) => String(value).padStart(2, '0')
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
-}
-
 function buildItems() {
   return Object.keys(selected).map(Number).map((dishId) => ({ dishId }))
 }
@@ -358,14 +427,8 @@ function clearSelection() {
     delete selected[Number(key)]
   }
   showList.value = false
-}
-
-function readPeopleCount(value: string) {
-  const count = Number(value)
-  if (!Number.isInteger(count) || count < 1 || count > 20) {
-    throw new Error('人数请填 1 到 20')
-  }
-  return count
+  createMode.value = false
+  updatePaneHeight()
 }
 
 async function onCreate() {
@@ -376,20 +439,27 @@ async function onCreate() {
     uni.showToast({ title: '请填写时间和地点', icon: 'none' })
     return
   }
+  try {
+    assertFutureSchedule(activityDate.value, activityTime.value)
+  } catch (error) {
+    uni.showToast({ title: error instanceof Error ? error.message : '时间无效', icon: 'none' })
+    return
+  }
   submitting.value = true
   try {
     await auth.ensureLogin()
     const created = await createActivity({
-      name: activityName.value.trim() || undefined,
+      name: activityName.value.trim() || defaultActivityName(activityDate.value),
       scheduledAt: `${activityDate.value}T${activityTime.value}:00`,
       location: activityLocation.value.trim(),
-      peopleCount: readPeopleCount(activityPeople.value),
+      peopleCount: peopleCountOf(peopleIndex.value),
       items: buildItems(),
     })
     clearSelection()
     activityName.value = ''
+    autoName.value = ''
     activityLocation.value = ''
-    activityPeople.value = '1'
+    peopleIndex.value = 0
     uni.navigateTo({ url: `/pages/activity/detail?id=${created.id}` })
   } catch (error) {
     uni.showToast({ title: error instanceof Error ? error.message : '发起失败', icon: 'none' })
@@ -418,11 +488,13 @@ async function onAddToActivity() {
 }
 
 onShow(() => {
+  syncTabBar(0)
   readPending()
   updatePaneHeight()
-  if (!activityDate.value) {
+  if (!activityDate.value || activityDate.value < todayText()) {
     activityDate.value = todayText()
   }
+  syncAutoName(activityDate.value)
   void load()
   void loadAdded()
 })
@@ -643,7 +715,7 @@ onShow(() => {
   position: fixed;
   left: 12px;
   right: 12px;
-  bottom: 16px;
+  bottom: calc(56px + env(safe-area-inset-bottom) + 10px);
   background: #2c2a26;
   color: #fff;
   border-radius: 999px;
@@ -651,15 +723,39 @@ onShow(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  z-index: 20;
+  gap: 12px;
+  z-index: 1000;
+  box-shadow: 0 8px 24px rgba(44, 42, 38, 0.28);
+}
+
+.cart-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cart-count {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.cart-hint {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.72);
 }
 
 .cart-btn {
   background: #5b8f7a;
   color: #fff;
   border-radius: 999px;
-  font-size: 13px;
+  font-size: 14px;
+  font-weight: 700;
   margin: 0;
+  padding: 0 18px;
+  height: 36px;
+  line-height: 36px;
 }
 
 .mask {
