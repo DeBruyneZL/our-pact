@@ -147,9 +147,9 @@ public class ActivityServiceImpl implements ActivityService {
     @Transactional(rollbackFor = Throwable.class)
     public ActivityResponse add(ActivitySaveRequest request) {
         long userId = currentUserId();
-        requireUniqueName(userId);
+        User initiator = requireUniqueName(userId);
         Activity activity = new Activity();
-        activity.setName(request.getName().trim());
+        activity.setName(resolveName(request.getName(), initiator, request.getScheduledAt()));
         activity.setScheduledAt(request.getScheduledAt());
         activity.setLocation(request.getLocation().trim());
         activity.setUserId(userId);
@@ -780,7 +780,8 @@ public class ActivityServiceImpl implements ActivityService {
         return "现在不能再加菜";
     }
 
-    private void requireUniqueName(long userId) {
+    /** 发起人唯一昵称校验，通过后把用户带回，给默认活动名用。 */
+    private User requireUniqueName(long userId) {
         User user = userMapper.selectById(userId);
         if (user == null) {
             throw new BusinessException("用户不存在");
@@ -793,6 +794,18 @@ public class ActivityServiceImpl implements ActivityService {
         if (count != null && count > 1) {
             throw new BusinessException("这个昵称已经有人用了，请先改成别人没有的名字");
         }
+        return user;
+    }
+
+    /** 名称为空时拼默认名：谁发起的几月几号的小聚。 */
+    private String resolveName(String raw, User initiator, LocalDateTime scheduledAt) {
+        String name = raw == null ? "" : raw.trim();
+        if (!name.isEmpty()) {
+            return name;
+        }
+        LocalDateTime time = scheduledAt == null ? LocalDateTime.now() : scheduledAt;
+        String nickname = initiator.getNickname() == null ? "" : initiator.getNickname().trim();
+        return String.format("%s的%d月%d日小聚", nickname, time.getMonthValue(), time.getDayOfMonth());
     }
 
     private ActivityPageQuery prepareQuery(ActivityPageQuery query) {

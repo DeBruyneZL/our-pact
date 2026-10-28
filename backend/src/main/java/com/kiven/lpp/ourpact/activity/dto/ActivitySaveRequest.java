@@ -19,7 +19,7 @@ import java.util.List;
 @Data
 public class ActivitySaveRequest {
 
-    @NotBlank(message = "请填写活动名称")
+    /** 可不填。为空时后端按「谁发起的几月几号的小聚」生成默认名。 */
     @Size(max = 64, message = "活动名称不能超过 64 个字")
     private String name;
 

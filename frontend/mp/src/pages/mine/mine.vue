@@ -2,43 +2,67 @@
   <view class="page">
     <view v-if="errorMessage" class="error">{{ errorMessage }}</view>
 
-    <template v-else-if="auth.profile">
-      <view class="hero">
-        <button class="avatar-btn" open-type="chooseAvatar" @chooseavatar="onChooseAvatar">
+    <template v-else-if="hasProfile">
+      <template v-if="editing">
+        <view class="hero">
+          <button class="avatar-btn" open-type="chooseAvatar" @chooseavatar="onChooseAvatar">
+            <image
+              v-if="hasAvatar"
+              class="avatar"
+              :src="avatarSrc"
+              mode="aspectFill"
+            />
+            <view v-else class="avatar avatar-fallback">{{ initial }}</view>
+          </button>
+          <text class="hint">点头像，使用微信头像</text>
+          <text v-if="savedName" class="name-input saved-name">{{ savedName }}</text>
+          <input
+            v-else
+            id="wx-nickname"
+            class="name-input"
+            type="nickname"
+            placeholder="点此使用微信昵称"
+            placeholder-class="name-placeholder"
+            @blur="onNicknameBlur"
+            @nicknamereview="onNicknameReview"
+          />
+        </view>
+
+        <view class="panel">
+          <text class="cell-label">手机号</text>
+          <input
+            v-model="phoneInput"
+            class="cell-input"
+            type="number"
+            maxlength="11"
+            placeholder="选填"
+            placeholder-class="cell-placeholder"
+            @blur="onPhoneBlur"
+          />
+        </view>
+
+        <button class="edit-btn" @tap="onFinishEdit">完成</button>
+      </template>
+
+      <template v-else>
+        <view class="hero">
           <image
-            v-if="auth.profile.avatar"
+            v-if="hasAvatar"
             class="avatar"
-            :src="absoluteUrl(auth.profile.avatar)"
+            :src="avatarSrc"
             mode="aspectFill"
           />
           <view v-else class="avatar avatar-fallback">{{ initial }}</view>
-        </button>
-        <text class="hint">点头像，使用微信头像</text>
-        <text v-if="savedName" class="name-input saved-name">{{ savedName }}</text>
-        <input
-          v-else
-          id="wx-nickname"
-          class="name-input"
-          type="nickname"
-          placeholder="点此使用微信昵称"
-          placeholder-class="name-placeholder"
-          @blur="onNicknameBlur"
-          @nicknamereview="onNicknameReview"
-        />
-      </view>
+          <text class="nickname">{{ viewName }}</text>
+        </view>
 
-      <view class="panel">
-        <text class="cell-label">手机号</text>
-        <input
-          v-model="phone"
-          class="cell-input"
-          type="number"
-          maxlength="11"
-          placeholder="选填"
-          placeholder-class="cell-placeholder"
-          @blur="onPhoneBlur"
-        />
-      </view>
+        <view class="panel">
+          <text class="cell-label">手机号</text>
+          <text class="cell-value">{{ phoneText }}</text>
+        </view>
+
+        <button class="edit-btn" @tap="editing = true">编辑资料</button>
+      </template>
     </template>
   </view>
 </template>
@@ -62,10 +86,30 @@ interface ChooseAvatarEvent {
 const auth = useAuthStore()
 const page = getCurrentInstance()
 const savedName = ref('')
-const phone = ref('')
+const phoneInput = ref('')
 const errorMessage = ref('')
-const initial = computed(() => auth.displayName.slice(0, 1) || '用')
+/** 默认只读展示，点「编辑资料」才进入编辑。 */
+const editing = ref(false)
 let saving = false
+
+const hasProfile = computed(() => Boolean(auth.profile))
+const avatarSrc = computed(() => absoluteUrl(auth.profile?.avatar))
+const hasAvatar = computed(() => Boolean(avatarSrc.value))
+const initial = computed(() => {
+  const name = auth.displayName || ''
+  return name ? name.slice(0, 1) : '用'
+})
+
+/** 展示用昵称：没设置过就提示去编辑。 */
+const viewName = computed(() => {
+  if (savedName.value) {
+    return savedName.value
+  }
+  const nickname = auth.profile?.nickname
+  return isPlaceholderName(nickname) ? '还没起名字' : nickname || ''
+})
+
+const phoneText = computed(() => phoneInput.value || '未绑定')
 
 function isPlaceholderName(name?: string | null) {
   return !name || name === '微信用户'
@@ -77,7 +121,7 @@ async function loadProfile() {
     await auth.ensureLogin()
     await auth.loadProfile(true)
     savedName.value = isPlaceholderName(auth.profile?.nickname) ? '' : auth.profile?.nickname || ''
-    phone.value = auth.profile?.phone || ''
+    phoneInput.value = auth.profile?.phone || ''
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : '获取用户失败'
   }
@@ -104,7 +148,7 @@ async function commitNickname(raw: string) {
   if (isPlaceholderName(name) || name === auth.profile?.nickname) {
     return
   }
-  await save(name, phone.value)
+  await save(name, phoneInput.value)
   savedName.value = isPlaceholderName(auth.profile?.nickname) ? name : auth.profile?.nickname || name
 }
 
@@ -126,13 +170,13 @@ function wait(ms: number) {
 }
 
 async function onPhoneBlur() {
-  const tel = phone.value.trim()
+  const tel = phoneInput.value.trim()
   if (tel === (auth.profile?.phone || '')) {
     return
   }
   if (tel && !PHONE_PATTERN.test(tel)) {
     uni.showToast({ title: '手机号格式不对', icon: 'none' })
-    phone.value = auth.profile?.phone || ''
+    phoneInput.value = auth.profile?.phone || ''
     return
   }
   const name = savedName.value || auth.profile?.nickname || ''
@@ -152,7 +196,7 @@ async function save(name: string, tel: string) {
     const latest = await updateProfile({ nickname: name, phone: tel })
     auth.profile = latest
     savedName.value = isPlaceholderName(latest.nickname) ? savedName.value : latest.nickname
-    phone.value = latest.phone || ''
+    phoneInput.value = latest.phone || ''
     uni.showToast({ title: '已保存', icon: 'success' })
   } catch (error) {
     uni.showToast({ title: error instanceof Error ? error.message : '保存失败', icon: 'none' })
@@ -165,6 +209,12 @@ function onChooseAvatar(event: ChooseAvatarEvent) {
   if (event.detail?.avatarUrl) {
     void changeAvatar(event.detail.avatarUrl)
   }
+}
+
+/** 结束编辑：回只读展示，并刷新一次资料。 */
+async function onFinishEdit() {
+  editing.value = false
+  await loadProfile()
 }
 
 async function changeAvatar(filePath: string) {
@@ -180,6 +230,7 @@ async function changeAvatar(filePath: string) {
 }
 
 onShow(() => {
+  editing.value = false
   void loadProfile()
 })
 </script>
@@ -240,6 +291,21 @@ onShow(() => {
   font-size: 12px;
 }
 
+.nickname {
+  margin-top: 10px;
+  font-size: 20px;
+  font-weight: 700;
+  color: #2c2a26;
+}
+
+.edit-btn {
+  margin-top: 16px;
+  background: #5b8f7a;
+  color: #fff;
+  border-radius: 999px;
+  font-size: 15px;
+}
+
 .name-input {
   margin-top: 8px;
   width: 220px;
@@ -285,5 +351,14 @@ onShow(() => {
 
 .cell-placeholder {
   color: #b3ada2;
+}
+
+.cell-value {
+  flex: 1;
+  height: 48px;
+  line-height: 48px;
+  text-align: right;
+  font-size: 15px;
+  color: #2c2a26;
 }
 </style>

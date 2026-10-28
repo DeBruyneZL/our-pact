@@ -10,7 +10,8 @@ export interface ActivityItemPayload {
 }
 
 export interface ActivitySavePayload {
-  name: string
+  /** 不填时后端按「谁发起的几月几号的小聚」生成默认名。 */
+  name?: string
   scheduledAt: string
   location: string
   peopleCount?: number
