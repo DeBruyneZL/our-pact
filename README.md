@@ -103,6 +103,7 @@ docker compose up -d --build
 - 后端与 MySQL 在同一台机器，容器使用宿主机网络，数据库地址是 `127.0.0.1:3306`
 - Nginx 把 `/api` 反代到宿主机 `8080`
 - 头像、菜品图、活动照片分别在宿主机 `/data/our-pact/avatars`、`/data/our-pact/dishes`、`/data/our-pact/activities`，挂进后端容器同一路径。`network_mode: host` 不影响这些卷。重建容器不会删这些目录；删掉项目源码目录（如 `our-pact-main/`）也不会影响它们
+- 小程序登录读 `WX_APP_ID`、`WX_APP_SECRET`。在项目根目录建 `.env`（已被 git 忽略）写入这两项，再 `docker compose up -d`。只改环境变量不用 `--build`
 
 数据库不在本机时，再通过环境变量 `MYSQL_HOST`、`MYSQL_PORT` 覆盖。
 

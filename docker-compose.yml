@@ -17,6 +17,9 @@ services:
       AVATAR_DIR: /data/our-pact/avatars
       DISH_IMAGE_DIR: /data/our-pact/dishes
       ACTIVITY_DIR: /data/our-pact/activities
+      # 小程序登录。值放项目根目录 .env，不写进仓库
+      WX_APP_ID: ${WX_APP_ID:-}
+      WX_APP_SECRET: ${WX_APP_SECRET:-}
     # 宿主机网络不影响卷挂载。头像、菜品图、活动照片落在服务器目录，重建容器不会丢文件
     volumes:
       - /data/our-pact/avatars:/data/our-pact/avatars
