@@ -39,6 +39,10 @@ export interface UserProfile {
   avatar: string | null
   superAdmin: boolean
   createTime: string
+  /** 参加过的活动次数（发起 + 加入） */
+  activityCount?: number
+  /** 点过的菜数量 */
+  dishCount?: number
 }
 
 export interface ProfileUpdatePayload {

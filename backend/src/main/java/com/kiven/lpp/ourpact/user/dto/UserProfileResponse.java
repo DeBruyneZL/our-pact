@@ -25,4 +25,10 @@ public class UserProfileResponse {
     private Boolean superAdmin;
 
     private LocalDateTime createTime;
+
+    /** 参加过的活动次数（发起 + 加入）。 */
+    private Integer activityCount;
+
+    /** 点过的菜数量（自己加到活动里的菜）。 */
+    private Integer dishCount;
 }

@@ -4,6 +4,12 @@ import cn.dev33.satoken.stp.StpUtil;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.kiven.lpp.ourpact.activity.entity.Activity;
+import com.kiven.lpp.ourpact.activity.entity.ActivityItem;
+import com.kiven.lpp.ourpact.activity.entity.ActivityParticipant;
+import com.kiven.lpp.ourpact.activity.mapper.ActivityItemMapper;
+import com.kiven.lpp.ourpact.activity.mapper.ActivityMapper;
+import com.kiven.lpp.ourpact.activity.mapper.ActivityParticipantMapper;
 import com.kiven.lpp.ourpact.common.BusinessException;
 import com.kiven.lpp.ourpact.common.PageResult;
 import com.kiven.lpp.ourpact.common.PageUtil;
@@ -40,9 +46,22 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
     private final PasswordEncoder passwordEncoder;
 
-    public UserServiceImpl(AvatarStorage avatarStorage, PasswordEncoder passwordEncoder) {
+    private final ActivityMapper activityMapper;
+
+    private final ActivityParticipantMapper participantMapper;
+
+    private final ActivityItemMapper itemMapper;
+
+    public UserServiceImpl(AvatarStorage avatarStorage,
+                           PasswordEncoder passwordEncoder,
+                           ActivityMapper activityMapper,
+                           ActivityParticipantMapper participantMapper,
+                           ActivityItemMapper itemMapper) {
         this.avatarStorage = avatarStorage;
         this.passwordEncoder = passwordEncoder;
+        this.activityMapper = activityMapper;
+        this.participantMapper = participantMapper;
+        this.itemMapper = itemMapper;
     }
 
     @Override
@@ -117,6 +136,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         response.setAvatar(avatarStorage.url(user.getAvatar()));
         response.setSuperAdmin(YesNo.YES.getValue().equals(user.getSuperAdmin()));
         response.setCreateTime(user.getCreateTime());
+        fillStats(response, user.getId());
         return response;
     }
 
@@ -220,7 +240,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     }
 
     /**
-     * 列表保留库里的昵称，空昵称不回退成用户名。
+     * 列表保留库里的昵称，空昵称不回退成用户名。管理端列表不附带个人统计。
      */
     private UserProfileResponse toListItem(User user) {
         UserProfileResponse response = new UserProfileResponse();
@@ -231,7 +251,28 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         response.setAvatar(avatarStorage.url(user.getAvatar()));
         response.setSuperAdmin(YesNo.YES.getValue().equals(user.getSuperAdmin()));
         response.setCreateTime(user.getCreateTime());
+        response.setActivityCount(0);
+        response.setDishCount(0);
         return response;
+    }
+
+    private void fillStats(UserProfileResponse response, Long userId) {
+        if (userId == null) {
+            response.setActivityCount(0);
+            response.setDishCount(0);
+            return;
+        }
+        Long owned = activityMapper.selectCount(Wrappers.<Activity>lambdaQuery().eq(Activity::getUserId, userId));
+        Long joined = participantMapper.selectCount(Wrappers.<ActivityParticipant>lambdaQuery()
+                .eq(ActivityParticipant::getUserId, userId));
+        Long dishes = itemMapper.selectCount(Wrappers.<ActivityItem>lambdaQuery()
+                .eq(ActivityItem::getAddedByUserId, userId));
+        response.setActivityCount((int) (nullToZero(owned) + nullToZero(joined)));
+        response.setDishCount((int) nullToZero(dishes));
+    }
+
+    private long nullToZero(Long value) {
+        return value == null ? 0L : value;
     }
 
     private User requireUser(Long userId) {

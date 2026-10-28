@@ -10,7 +10,7 @@
       <text>{{ addingBar }}</text>
       <text class="adding-back" @tap="backToActivity">返回活动</text>
     </view>
-    <view class="menu-tree">
+    <view class="menu-tree" :style="paneStyle">
       <scroll-view scroll-y class="cat-side" :style="paneStyle">
         <view
           v-for="cat in catCards"
@@ -59,7 +59,7 @@
     </view>
     </view>
 
-    <view v-if="cartText" class="cart-bar">
+    <view v-if="cartText && !showList" class="cart-bar">
       <view class="cart-main" @tap="openCartSheet">
         <text class="cart-count">{{ cartText }}</text>
         <text class="cart-hint">点此查看清单</text>
@@ -106,7 +106,7 @@
 
 <script setup lang="ts">
 import { onShow } from '@dcloudio/uni-app'
-import { computed, reactive, ref } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import type { Dish, DishCategory } from '@our-pact/shared'
 import { addActivityItems, createActivity, getActivity } from '@/api/activity'
 import { listCategories, listDishes } from '@/api/menu'
@@ -122,7 +122,7 @@ import {
   peopleCountOf,
   todayText,
 } from '@/utils/activityForm'
-import { syncTabBar } from '@/utils/tabBar'
+import { setTabBarHidden, syncTabBar } from '@/utils/tabBar'
 
 interface SelectedSummary {
   id: number
@@ -154,8 +154,8 @@ const pendingActivity = ref<{ id: number; title: string } | null>(null)
 const addedDishIds = ref<number[]>([])
 const addingDishId = ref(0)
 const failedCovers = reactive<Record<number, boolean>>({})
-const paneHeight = ref(600)
 const selected = reactive<Record<number, boolean>>({})
+const paneHeight = ref(480)
 const PENDING_KEY = 'our-pact.pending-activity'
 const loadingText = '加载中'
 const checkMark = CHECK_MARK
@@ -258,13 +258,11 @@ async function load() {
     loadError.value = error instanceof Error ? error.message : '加载菜单失败'
   } finally {
     loading.value = false
-    updatePaneHeight()
   }
 }
 
-function updatePaneHeight() {
+function navMetrics() {
   const sys = uni.getSystemInfoSync()
-  const windowHeight = sys.windowHeight
   const statusBar = sys.statusBarHeight || 20
   let navBar = 44
   try {
@@ -275,11 +273,19 @@ function updatePaneHeight() {
   } catch {
     // ignore
   }
-  const brandNav = statusBar + navBar
+  return {
+    windowHeight: sys.windowHeight || 667,
+    brandNav: statusBar + navBar,
+  }
+}
+
+/** scroll-view 必须有明确像素高度，否则在微信里会塌缩/把底栏顶上去。 */
+function updatePaneHeight() {
+  const { windowHeight, brandNav } = navMetrics()
   const tabBar = 56
-  const cart = selectedCount.value > 0 && !pendingActivity.value ? 58 : 0
   const banner = pendingActivity.value ? 42 : 0
-  paneHeight.value = Math.max(windowHeight - brandNav - tabBar - cart - banner, 200)
+  const cart = cartText.value && !showList.value ? 58 : 0
+  paneHeight.value = Math.max(windowHeight - brandNav - tabBar - banner - cart, 200)
 }
 
 function onCoverError(dishId: number) {
@@ -318,11 +324,11 @@ function openCreateFromCart() {
 
 function removeDish(dishId: number) {
   delete selected[dishId]
-  updatePaneHeight()
   if (!selectedCount.value) {
     showList.value = false
     createMode.value = false
   }
+  updatePaneHeight()
 }
 
 function syncAutoName(dateText: string) {
@@ -416,6 +422,7 @@ function backToActivity() {
 function clearPending() {
   uni.removeStorageSync(PENDING_KEY)
   pendingActivity.value = null
+  updatePaneHeight()
 }
 
 function buildItems() {
@@ -430,6 +437,11 @@ function clearSelection() {
   createMode.value = false
   updatePaneHeight()
 }
+
+watch(showList, (open) => {
+  setTabBarHidden(open)
+  updatePaneHeight()
+})
 
 async function onCreate() {
   if (submitting.value) {
@@ -489,22 +501,24 @@ async function onAddToActivity() {
 
 onShow(() => {
   syncTabBar(0)
+  setTabBarHidden(false)
+  showList.value = false
   readPending()
   updatePaneHeight()
   if (!activityDate.value || activityDate.value < todayText()) {
     activityDate.value = todayText()
   }
   syncAutoName(activityDate.value)
-  void load()
-  void loadAdded()
+  void load().then(() => updatePaneHeight())
+  void loadAdded().then(() => updatePaneHeight())
 })
 </script>
 
 <style scoped>
 .page {
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
+  min-height: 100vh;
+  box-sizing: border-box;
+  background: #f7f5f0;
 }
 
 .center {
@@ -521,12 +535,8 @@ onShow(() => {
 }
 
 .menu-wrap {
-  flex: 1;
-  height: 0;
-  min-height: 0;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
 }
 
 .adding-bar {
@@ -549,9 +559,6 @@ onShow(() => {
 }
 
 .menu-tree {
-  flex: 1;
-  height: 0;
-  min-height: 0;
   display: flex;
   overflow: hidden;
 }
@@ -592,8 +599,9 @@ onShow(() => {
 .dish-pane {
   flex: 1;
   min-width: 0;
-  padding: 10px 10px 72px;
+  padding: 10px;
   box-sizing: border-box;
+  background: #f7f5f0;
 }
 
 .dish-card {
@@ -715,7 +723,7 @@ onShow(() => {
   position: fixed;
   left: 12px;
   right: 12px;
-  bottom: calc(56px + env(safe-area-inset-bottom) + 10px);
+  bottom: 66px;
   background: #2c2a26;
   color: #fff;
   border-radius: 999px;
@@ -724,7 +732,7 @@ onShow(() => {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  z-index: 1000;
+  z-index: 20;
   box-shadow: 0 8px 24px rgba(44, 42, 38, 0.28);
 }
 
@@ -762,17 +770,19 @@ onShow(() => {
   position: fixed;
   inset: 0;
   background: rgba(44, 42, 38, 0.5);
-  z-index: 30;
+  z-index: 1100;
   display: flex;
   align-items: flex-end;
 }
 
 .sheet {
+  position: relative;
+  z-index: 1;
   width: 100%;
-  max-height: 70vh;
+  max-height: 78vh;
   background: #fffcf7;
   border-radius: 20px 20px 0 0;
-  padding: 18px 16px calc(18px + env(safe-area-inset-bottom));
+  padding: 18px 16px calc(24px + env(safe-area-inset-bottom));
   box-sizing: border-box;
   display: flex;
   flex-direction: column;

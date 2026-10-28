@@ -65,7 +65,7 @@ import {
   peopleCountOf,
   todayText,
 } from '@/utils/activityForm'
-import { syncTabBar } from '@/utils/tabBar'
+import { setTabBarHidden, syncTabBar } from '@/utils/tabBar'
 
 const auth = useAuthStore()
 const activities = ref<Activity[]>([])
@@ -219,6 +219,7 @@ async function onCreate() {
 
 onShow(() => {
   syncTabBar(1)
+  setTabBarHidden(false)
   if (!activityDate.value || activityDate.value < todayText()) {
     activityDate.value = todayText()
   }
