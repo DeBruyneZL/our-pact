@@ -14,7 +14,7 @@
         <view
           v-for="row in activityCards"
           :key="row.id"
-          class="card"
+          :class="row.cardSkin"
           @tap="openDetail(row.id)"
         >
           <view class="row">
@@ -116,6 +116,7 @@ const activityCards = computed(() =>
       title,
       status: statusLabel(item.status),
       statusSkin: `status ${statusClass(item.status)}`,
+      cardSkin: `card ${statusClass(item.status)}`,
       when: place ? `${when} · ${place}` : when,
       summary: `${who} 发起 · ${dishCount} 道菜 · 共 ${people} 人`,
     }
@@ -161,7 +162,7 @@ async function load() {
     await auth.ensureLogin()
     const page = await pageMyActivities()
     const list = Array.isArray(page?.list) ? page.list : []
-    activities.value = list.filter((item) => item.status !== 'withdrawn')
+    activities.value = list
   } catch (error) {
     activities.value = []
     errorMessage.value = error instanceof Error ? error.message : '加载失败'
@@ -302,10 +303,20 @@ onShow(() => {
 
 .card {
   background: #fffcf7;
-  border: 1px solid #e5e1d8;
+  border: 1px solid #c9ddd3;
   border-radius: 14px;
   padding: 14px;
   margin-bottom: 12px;
+}
+
+.card.completed {
+  border-color: #d5cfc6;
+  background: #f8f6f2;
+}
+
+.card.withdrawn {
+  border-color: #e4dfd6;
+  background: #f4f1eb;
 }
 
 .row {

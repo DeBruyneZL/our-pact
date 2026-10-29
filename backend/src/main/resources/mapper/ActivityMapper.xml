@@ -24,7 +24,14 @@
         <if test="query.status != null and query.status != ''">
             AND t.status = #{query.status}
         </if>
-        ORDER BY t.scheduled_at DESC, t.id DESC
+        ORDER BY CASE t.status
+            WHEN 'open' THEN 0
+            WHEN 'replied' THEN 0
+            WHEN 'completed' THEN 1
+            WHEN 'withdrawn' THEN 2
+            ELSE 3
+        END,
+        t.scheduled_at DESC, t.id DESC
     </select>
 
     <select id="queryManage" resultType="com.kiven.lpp.ourpact.activity.entity.Activity">
