@@ -245,7 +245,7 @@ public class ActivityServiceImpl implements ActivityService {
                 .set(Activity::getScheduledAt, request.getScheduledAt())
                 .set(Activity::getLocation, request.getLocation().trim()));
         if (changed == 0) {
-            throw new BusinessException("答复后不能再修改活动");
+            throw new BusinessException("确认后不能再修改活动");
         }
         return loadDetail(id, userId);
     }
@@ -304,7 +304,7 @@ public class ActivityServiceImpl implements ActivityService {
         long userId = currentUserId();
         Activity activity = requireActivity(id);
         if (!activity.getUserId().equals(userId)) {
-            throw new BusinessException("只有发起人可以撤回");
+            throw new BusinessException("只有发起人可以取消");
         }
         LocalDateTime now = LocalDateTime.now();
         int changed = activityMapper.update(null, Wrappers.<Activity>lambdaUpdate()
@@ -313,14 +313,14 @@ public class ActivityServiceImpl implements ActivityService {
                 .set(Activity::getStatus, ActivityStatus.WITHDRAWN.getValue())
                 .set(Activity::getWithdrawnAt, now));
         if (changed == 0) {
-            throw new BusinessException("已完成的活动不能撤回");
+            throw new BusinessException("已完成的活动不能取消");
         }
         User user = userMapper.selectById(userId);
         String initiatorName = displayName(user);
         ActivityNotice notice = new ActivityNotice();
         notice.setActivityId(id);
         notice.setType(ActivityNoticeType.WITHDRAWN.getValue());
-        notice.setMessage(initiatorName + "撤回了活动「" + activity.getName() + "」");
+        notice.setMessage(initiatorName + "取消了活动「" + activity.getName() + "」");
         notice.setReadFlag(YesNo.NO.getValue());
         noticeMapper.insert(notice);
         // 提交成功后再给参与人推微信订阅消息，失败不影响撤回
@@ -809,7 +809,7 @@ public class ActivityServiceImpl implements ActivityService {
 
     private String closedMessage(Activity activity) {
         if (ActivityStatus.WITHDRAWN.getValue().equals(activity.getStatus())) {
-            return "活动已撤回";
+            return "活动已取消";
         }
         if (ActivityStatus.COMPLETED.getValue().equals(activity.getStatus())) {
             return "活动已完成，不能再加入或加菜";

@@ -127,7 +127,7 @@
       </view>
 
       <view v-if="activity.canWithdraw || activity.canComplete" class="activity-actions">
-        <button v-if="activity.canWithdraw" class="withdraw-action" @tap="onWithdraw">撤回活动</button>
+        <button v-if="activity.canWithdraw" class="withdraw-action" @tap="onWithdraw">取消活动</button>
         <button v-if="activity.canComplete" class="complete-action" @tap="onComplete">确认已参加</button>
       </view>
 
@@ -153,7 +153,7 @@
 <script setup lang="ts">
 import { onLoad, onShareAppMessage, onShow } from '@dcloudio/uni-app'
 import { computed, reactive, ref } from 'vue'
-import type { Activity, ActivityItem, ActivityStatus } from '@our-pact/shared'
+import { activityStatusLabel, type Activity, type ActivityItem, type ActivityStatus } from '@our-pact/shared'
 import {
   completeActivity,
   deleteActivityItem,
@@ -383,7 +383,7 @@ const showJoin = computed(() => {
 })
 
 function statusLabel(status: ActivityStatus) {
-  return { open: '待答复', replied: '已答复', withdrawn: '已撤回', completed: '已完成' }[status]
+  return activityStatusLabel(status)
 }
 
 function formatWhen(value: string) {
@@ -541,17 +541,17 @@ function onWithdraw() {
     return
   }
   uni.showModal({
-    title: '撤回活动',
-    content: '撤回后不能再加菜，管理员会收到通知',
+    title: '取消活动',
+    content: '取消后不能再加菜，管理员会收到通知',
     success: async (res) => {
       if (!res.confirm || !activity.value) {
         return
       }
       try {
         activity.value = await withdrawActivity(activity.value.id)
-        uni.showToast({ title: '已撤回', icon: 'success' })
+        uni.showToast({ title: '已取消', icon: 'success' })
       } catch (error) {
-        uni.showToast({ title: error instanceof Error ? error.message : '撤回失败', icon: 'none' })
+        uni.showToast({ title: error instanceof Error ? error.message : '取消失败', icon: 'none' })
       }
     },
   })

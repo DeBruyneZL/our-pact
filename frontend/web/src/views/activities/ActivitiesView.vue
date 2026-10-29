@@ -3,24 +3,17 @@
     <div class="head">
       <div>
         <h2>活动记录</h2>
-        <p>答复不是审批，不挡住分享和加菜。答复之后不能再改名称、时间、地点。自己加的菜仍可删除。发起人仍可撤回。</p>
-      </div>
-    </div>
-
-    <div v-if="unreadNotices.length" class="notices">
-      <div v-for="notice in unreadNotices" :key="notice.id" class="notice">
-        <span>{{ notice.message }}</span>
-        <el-button link type="primary" @click="markRead(notice.id)">知道了</el-button>
+        <p>确认不是审批，不挡住分享和加菜。确认之后不能再改名称、时间、地点。自己加的菜仍可删除。发起人仍可取消。</p>
       </div>
     </div>
 
     <div class="filters">
       <el-radio-group v-model="filter" @change="onFilter">
         <el-radio-button label="all">全部</el-radio-button>
-        <el-radio-button label="open">待答复</el-radio-button>
-        <el-radio-button label="replied">已答复</el-radio-button>
-        <el-radio-button label="withdrawn">已撤回</el-radio-button>
-        <el-radio-button label="completed">已完成</el-radio-button>
+        <el-radio-button label="open">{{ activityStatusLabel('open') }}</el-radio-button>
+        <el-radio-button label="replied">{{ activityStatusLabel('replied') }}</el-radio-button>
+        <el-radio-button label="withdrawn">{{ activityStatusLabel('withdrawn') }}</el-radio-button>
+        <el-radio-button label="completed">{{ activityStatusLabel('completed') }}</el-radio-button>
       </el-radio-group>
     </div>
 
@@ -164,20 +157,17 @@
 import { computed, onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
+  activityStatusLabel,
   deleteActivity,
   formatDateTime,
-  listActivityNotices,
   pageManageActivities,
-  readActivityNotice,
   replyActivity,
   type Activity,
   type ActivityItem,
   type ActivityStatus,
-  type AdminNotice,
 } from '@our-pact/shared'
 
 const activities = ref<Activity[]>([])
-const notices = ref<AdminNotice[]>([])
 const loading = ref(false)
 const filter = ref<'all' | ActivityStatus>('all')
 const pageNum = ref(1)
@@ -187,7 +177,6 @@ const participantVisible = ref(false)
 const dishVisible = ref(false)
 const detailActivity = ref<Activity | null>(null)
 
-const unreadNotices = computed(() => notices.value.filter((item) => !item.read))
 const detailParticipants = computed(() => detailActivity.value?.participants || [])
 const detailDishes = computed(() => detailActivity.value?.items || [])
 const detailTotalPeople = computed(
@@ -201,12 +190,7 @@ const dishTitle = computed(() =>
 )
 
 function statusLabel(status: ActivityStatus) {
-  return {
-    open: '待答复',
-    replied: '已答复',
-    withdrawn: '已撤回',
-    completed: '已完成',
-  }[status]
+  return activityStatusLabel(status)
 }
 
 function statusType(status: ActivityStatus) {
@@ -245,10 +229,6 @@ function openDishes(row: Activity) {
   dishVisible.value = true
 }
 
-async function loadNotices() {
-  notices.value = await listActivityNotices()
-}
-
 async function load() {
   loading.value = true
   try {
@@ -259,7 +239,6 @@ async function load() {
     })
     activities.value = result.list
     total.value = result.total
-    await loadNotices()
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : '加载失败')
   } finally {
@@ -292,20 +271,11 @@ async function onReply(row: Activity) {
       inputValue: '',
     })
     await replyActivity(row.id, value)
-    ElMessage.success('已答复。名称、时间和地点不能再改，已分享的加菜不受影响')
+    ElMessage.success('已确认，活动改为待参加。名称、时间和地点不能再改')
     await load()
   } catch (error) {
     if (error === 'cancel') return
     ElMessage.error(error instanceof Error ? error.message : '答复失败')
-  }
-}
-
-async function markRead(id: number) {
-  try {
-    await readActivityNotice(id)
-    await loadNotices()
-  } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : '操作失败')
   }
 }
 
@@ -343,25 +313,6 @@ onMounted(load)
 
 .filters {
   margin-bottom: 16px;
-}
-
-.notices {
-  margin-bottom: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.notice {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 14px;
-  border-radius: 10px;
-  background: #fff4e5;
-  border: 1px solid #f0d7a8;
-  font-size: 13px;
 }
 
 .thumb {

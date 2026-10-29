@@ -19,6 +19,7 @@ export {
   assertAvatarFile,
   clearToken,
   consumeHandoffToken,
+  activityStatusLabel,
   formatDateTime,
   getToken,
   goLogin,

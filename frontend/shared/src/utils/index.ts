@@ -1,4 +1,5 @@
 export { clearToken, getToken, setToken } from './token'
+export { activityStatusLabel } from './activityStatus'
 export { formatDateTime, maskPhone } from './format'
 export { AVATAR_MAX_BYTES, PHONE_PATTERN, assertAvatarFile } from './avatar'
 export { readImageDataUrl } from './image'

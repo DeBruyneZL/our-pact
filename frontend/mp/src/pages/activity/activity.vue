@@ -52,7 +52,7 @@
 <script setup lang="ts">
 import { onShow } from '@dcloudio/uni-app'
 import { computed, ref } from 'vue'
-import type { Activity, ActivityStatus } from '@our-pact/shared'
+import { activityStatusLabel, type Activity, type ActivityStatus } from '@our-pact/shared'
 import { createActivity, pageMyActivities } from '@/api/activity'
 import BrandNav from '@/components/BrandNav.vue'
 import DateTimeField from '@/components/DateTimeField.vue'
@@ -124,7 +124,7 @@ const activityCards = computed(() =>
 )
 
 function statusLabel(status: ActivityStatus) {
-  return { open: '待答复', replied: '已答复', withdrawn: '已撤回', completed: '已完成' }[status]
+  return activityStatusLabel(status)
 }
 
 function statusClass(status: ActivityStatus) {

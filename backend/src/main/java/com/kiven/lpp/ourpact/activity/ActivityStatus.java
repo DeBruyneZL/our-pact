@@ -13,9 +13,9 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public enum ActivityStatus implements BaseEnum<String> {
 
-    OPEN("open", "待答复"),
-    REPLIED("replied", "已答复"),
-    WITHDRAWN("withdrawn", "已撤回"),
+    OPEN("open", "待确认"),
+    REPLIED("replied", "待参加"),
+    WITHDRAWN("withdrawn", "已取消"),
     COMPLETED("completed", "已完成");
 
     private final String value;

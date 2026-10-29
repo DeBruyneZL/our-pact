@@ -4,6 +4,7 @@ import AppLayout from '@/layouts/AppLayout.vue'
 import LoginView from '@/views/LoginView.vue'
 import DishesView from '@/views/dishes/DishesView.vue'
 import ActivitiesView from '@/views/activities/ActivitiesView.vue'
+import NoticesView from '@/views/notices/NoticesView.vue'
 import UsersView from '@/views/users/UsersView.vue'
 import ProfileView from '@/views/ProfileView.vue'
 import { useAuthStore } from '@/stores/auth'
@@ -20,6 +21,7 @@ const router = createRouter({
         { path: '', redirect: { name: 'dishes' } },
         { path: 'dishes', name: 'dishes', component: DishesView },
         { path: 'activities', name: 'activities', component: ActivitiesView },
+        { path: 'notices', name: 'notices', component: NoticesView },
         { path: 'users', name: 'users', component: UsersView },
         { path: 'profile', name: 'profile', component: ProfileView },
         { path: 'home', redirect: { name: 'dishes' } },
