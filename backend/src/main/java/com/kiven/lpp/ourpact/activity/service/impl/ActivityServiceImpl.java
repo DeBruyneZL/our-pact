@@ -439,11 +439,11 @@ public class ActivityServiceImpl implements ActivityService {
         }
         int changed = activityMapper.update(null, Wrappers.<Activity>lambdaUpdate()
                 .eq(Activity::getId, id)
-                .in(Activity::getStatus, ActivityStatus.OPEN.getValue(), ActivityStatus.REPLIED.getValue())
+                .eq(Activity::getStatus, ActivityStatus.REPLIED.getValue())
                 .set(Activity::getStatus, ActivityStatus.COMPLETED.getValue())
                 .set(Activity::getCompletedAt, LocalDateTime.now()));
         if (changed == 0) {
-            throw new BusinessException("这个活动不能再标记完成");
+            throw new BusinessException("活动确认后才能标记已参加");
         }
         return loadDetail(id, userId);
     }
@@ -766,7 +766,8 @@ public class ActivityServiceImpl implements ActivityService {
         response.setCanAdd(member && active);
         response.setCanEdit(owner && open);
         response.setCanWithdraw(owner && active);
-        response.setCanComplete(owner && active);
+        // 待确认未答复前不能点「确认已参加」，答复后才可
+        response.setCanComplete(owner && replied);
         response.setCanUpload(member && completed);
         response.setCanLeave(joined && !owner && active);
         response.setCanUpdatePeople(member && active);
