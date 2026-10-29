@@ -28,30 +28,52 @@
           v-for="card in dishCards"
           :key="card.id"
           :class="card.skin"
-          @tap="onDishTap(card.id)"
         >
-          <view class="cover-wrap">
-            <image
-              v-if="card.showCover"
-              :src="card.coverSrc"
-              mode="aspectFill"
-              class="cover"
-              @error="onCoverError(card.id)"
-            />
-            <view v-else class="cover cover-placeholder">暂无封面</view>
-            <view v-if="card.showPick" class="pick-badge">{{ checkMark }}</view>
-          </view>
-          <view class="dish-info">
-            <view class="dish-body">
-              <text class="dish-name">{{ card.title }}</text>
-              <text class="dish-desc">{{ card.extra }}</text>
+          <view class="dish-row" @tap="onDishTap(card.id)">
+            <view class="cover-wrap">
+              <image
+                v-if="card.showCover"
+                :src="card.coverSrc"
+                mode="aspectFill"
+                class="cover"
+                @error="onCoverError(card.id)"
+              />
+              <view v-else class="cover cover-placeholder">暂无封面</view>
+              <view v-if="card.showPick" class="pick-badge">{{ checkMark }}</view>
             </view>
-            <view
-              v-if="card.showPlus"
-              :class="card.plusSkin"
-              @tap.stop="onPlus(card.id)"
-            >
-              {{ card.plusText }}
+            <view class="dish-info">
+              <view class="dish-body">
+                <text class="dish-name">{{ card.title }}</text>
+                <text class="dish-desc">{{ card.extra }}</text>
+              </view>
+              <view
+                v-if="card.showPlus"
+                :class="card.plusSkin"
+                @tap.stop="onPlus(card.id)"
+              >
+                {{ card.plusText }}
+              </view>
+            </view>
+          </view>
+          <view v-if="card.optionGroups.length" class="option-block" @tap.stop>
+            <view v-for="group in card.optionGroups" :key="group.id" class="option-group">
+              <text class="option-label">{{ group.name }}（可选）</text>
+              <view class="chip-row">
+                <view
+                  :class="optionChipClass(card.id, group.id, null)"
+                  @tap="pickOption(card.id, group.id, null)"
+                >
+                  不选
+                </view>
+                <view
+                  v-for="value in group.values"
+                  :key="value.id"
+                  :class="optionChipClass(card.id, group.id, value.id)"
+                  @tap="pickOption(card.id, group.id, value.id)"
+                >
+                  {{ value.label }}
+                </view>
+              </view>
             </view>
           </view>
         </view>
@@ -83,6 +105,7 @@
           <view v-for="item in selectedList" :key="item.id" class="sheet-item">
             <view class="sheet-main">
               <text class="sheet-name">{{ item.title }}</text>
+              <text v-if="item.extra" class="sheet-extra">{{ item.extra }}</text>
             </view>
             <text class="sheet-remove" @tap="removeDish(item.id)">移除</text>
           </view>
@@ -161,8 +184,9 @@
 <script setup lang="ts">
 import { onShow } from '@dcloudio/uni-app'
 import { computed, reactive, ref, watch } from 'vue'
-import type { ActivityItem, Dish, DishCategory } from '@our-pact/shared'
+import type { ActivityItem, Dish, DishCategory, DishOptionGroup } from '@our-pact/shared'
 import { addActivityItems, createActivity, getActivity } from '@/api/activity'
+import type { ActivityItemPayload } from '@/api/activity'
 import { listCategories, listDishes } from '@/api/menu'
 import BrandNav from '@/components/BrandNav.vue'
 import DateTimeField from '@/components/DateTimeField.vue'
@@ -183,7 +207,11 @@ import { readWindowMetrics } from '@/utils/windowMetrics'
 interface SelectedSummary {
   id: number
   title: string
+  extra: string
 }
+
+/** 每道菜各组已选值；null 表示该组不选。 */
+type OptionPickMap = Record<number, number | null>
 
 const CHECK_MARK = String.fromCharCode(0x2713)
 const PLUS_MARK = '+'
@@ -214,6 +242,7 @@ const addedItems = ref<ActivityItem[]>([])
 const addingDishId = ref(0)
 const failedCovers = reactive<Record<number, boolean>>({})
 const selected = reactive<Record<number, boolean>>({})
+const optionPicks = reactive<Record<number, OptionPickMap>>({})
 const paneHeight = ref(480)
 const cartBarBottom = ref(66)
 const PENDING_KEY = 'our-pact.pending-activity'
@@ -300,7 +329,11 @@ const emptyPaneText = computed(() => (filteredDishes.value.length ? '' : '这个
 const selectedList = computed<SelectedSummary[]>(() =>
   Object.keys(selected).map(Number).map((id) => {
     const dish = dishes.value.find((entry) => entry.id === id)
-    return { id, title: dish?.name || '' }
+    return {
+      id,
+      title: dish?.name || '',
+      extra: optionSummaryText(dish),
+    }
   }),
 )
 const emptySheetText = computed(() => (selectedList.value.length ? '' : '还没有选菜'))
@@ -350,6 +383,7 @@ const dishCards = computed(() => {
     const added = addedDishIds.value.includes(dish.id)
     const locked = added && !repeatable
     const coverSrc = dish.imageUrl && !failedCovers[dish.id] ? absoluteUrl(dish.imageUrl) : ''
+    const groups = (dish.optionGroups || []).filter((group) => group.values?.length)
     let skin = 'dish-card'
     if (pending && locked) {
       skin = 'dish-card added'
@@ -367,9 +401,79 @@ const dishCards = computed(() => {
       plusText: locked ? CHECK_MARK : PLUS_MARK,
       plusSkin: locked ? 'plus done' : 'plus',
       skin,
+      optionGroups: groups as DishOptionGroup[],
     }
   })
 })
+
+function ensureOptionPicks(dish: Dish) {
+  if (optionPicks[dish.id]) {
+    return
+  }
+  const picks: OptionPickMap = {}
+  for (const group of dish.optionGroups || []) {
+    if (group.id != null) {
+      picks[group.id] = null
+    }
+  }
+  optionPicks[dish.id] = picks
+}
+
+function optionChipClass(dishId: number, groupId: number, valueId: number | null) {
+  const current = optionPicks[dishId]?.[groupId]
+  const active = current === undefined || current === null
+    ? valueId == null
+    : current === valueId
+  return active ? 'chip active' : 'chip'
+}
+
+function pickOption(dishId: number, groupId: number, valueId: number | null) {
+  const dish = dishes.value.find((entry) => entry.id === dishId)
+  if (!dish) {
+    return
+  }
+  ensureOptionPicks(dish)
+  optionPicks[dishId][groupId] = valueId
+  if (!pendingActivity.value && !selected[dishId]) {
+    selected[dishId] = true
+    updatePaneHeight()
+  }
+}
+
+function optionSummaryText(dish?: Dish) {
+  if (!dish) {
+    return ''
+  }
+  ensureOptionPicks(dish)
+  const picks = optionPicks[dish.id] || {}
+  const parts: string[] = []
+  for (const group of dish.optionGroups || []) {
+    const valueId = picks[group.id]
+    if (valueId == null) {
+      continue
+    }
+    const value = group.values.find((entry) => entry.id === valueId)
+    if (value) {
+      parts.push(`${group.name}：${value.label}`)
+    }
+  }
+  return parts.join(' · ')
+}
+
+function buildItemPayload(dishId: number): ActivityItemPayload {
+  const dish = dishes.value.find((entry) => entry.id === dishId)
+  if (dish) {
+    ensureOptionPicks(dish)
+  }
+  const picks = optionPicks[dishId] || {}
+  const options = Object.entries(picks)
+    .filter(([, valueId]) => valueId != null)
+    .map(([groupId, valueId]) => ({
+      groupId: Number(groupId),
+      valueId: valueId as number,
+    }))
+  return options.length ? { dishId, options } : { dishId }
+}
 
 async function load() {
   loading.value = true
@@ -382,6 +486,9 @@ async function load() {
     ])
     dishes.value = dishList
     categories.value = categoryList
+    for (const dish of dishList) {
+      ensureOptionPicks(dish)
+    }
     if (!categoryList.length) {
       return
     }
@@ -438,9 +545,13 @@ function onDetailAction() {
     void onPlus(dishId)
     return
   }
+  const dish = dishes.value.find((entry) => entry.id === dishId)
   if (selected[dishId]) {
     delete selected[dishId]
   } else {
+    if (dish) {
+      ensureOptionPicks(dish)
+    }
     selected[dishId] = true
   }
   updatePaneHeight()
@@ -469,6 +580,7 @@ function openCreateFromCart() {
 
 function removeDish(dishId: number) {
   delete selected[dishId]
+  delete optionPicks[dishId]
   if (!selectedCount.value) {
     showList.value = false
     createMode.value = false
@@ -546,10 +658,13 @@ async function onPlus(dishId: number) {
     uni.showToast({ title: '这道菜已经加过了', icon: 'none' })
     return
   }
+  if (dish) {
+    ensureOptionPicks(dish)
+  }
   addingDishId.value = dishId
   try {
     await auth.ensureLogin()
-    const activity = await addActivityItems(pendingActivity.value.id, [{ dishId }])
+    const activity = await addActivityItems(pendingActivity.value.id, [buildItemPayload(dishId)])
     rememberAdded(activity.items || [])
     uni.showToast({ title: '已加上', icon: 'success' })
   } catch (error) {
@@ -576,13 +691,16 @@ function clearPending() {
   updatePaneHeight()
 }
 
-function buildItems() {
-  return Object.keys(selected).map(Number).map((dishId) => ({ dishId }))
+function buildItems(): ActivityItemPayload[] {
+  return Object.keys(selected).map(Number).map((dishId) => buildItemPayload(dishId))
 }
 
 function clearSelection() {
   for (const key of Object.keys(selected)) {
     delete selected[Number(key)]
+  }
+  for (const key of Object.keys(optionPicks)) {
+    delete optionPicks[Number(key)]
   }
   showList.value = false
   createMode.value = false
@@ -761,8 +879,6 @@ onShow(() => {
 
 .dish-card {
   position: relative;
-  display: flex;
-  align-items: stretch;
   background: #fffcf7;
   border: 1px solid #e5e1d8;
   border-radius: 12px;
@@ -775,6 +891,11 @@ onShow(() => {
   background: #f3f8f5;
 }
 
+.dish-row {
+  display: flex;
+  align-items: stretch;
+}
+
 .dish-info {
   flex: 1;
   min-width: 0;
@@ -782,6 +903,47 @@ onShow(() => {
   align-items: center;
   gap: 8px;
   padding: 8px 10px;
+}
+
+.option-block {
+  padding: 0 10px 10px;
+  border-top: 1px solid #efeae2;
+}
+
+.option-group + .option-group {
+  margin-top: 8px;
+}
+
+.option-label {
+  display: block;
+  margin-top: 8px;
+  margin-bottom: 6px;
+  color: #5c5852;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chip {
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid #e5e1d8;
+  background: #f7f5f0;
+  color: #5c5852;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.chip.active {
+  border-color: #5b8f7a;
+  background: #e6f0eb;
+  color: #3d6f5c;
+  font-weight: 700;
 }
 
 .plus {
@@ -1159,6 +1321,12 @@ onShow(() => {
 .sheet-name {
   font-size: 15px;
   font-weight: 600;
+}
+
+.sheet-extra {
+  margin-top: 2px;
+  font-size: 12px;
+  color: #8a8680;
 }
 
 .sheet-note {
