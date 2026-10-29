@@ -28,6 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
 /**
@@ -41,6 +42,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     /** 用户不存在时也走一次哈希比对，避免用响应时间区分账号。 */
     private static final String DUMMY_PASSWORD_HASH =
             "$2b$10$OtEDThUOrjuHzKuFT5HJQOXf6jVoDuA814f5HBxs99YlwJgu2lEyW";
+
+    /** 小程序静默注册的占位昵称。原样保存会多人重名，点菜时被唯一校验拦住。 */
+    private static final String DEFAULT_NICKNAME = "微信用户";
 
     private final AvatarStorage avatarStorage;
 
@@ -92,25 +96,28 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     public User loginByWxApp(String openid) {
         User existing = findByOpenid(openid);
         if (existing != null) {
+            ensureDefaultNickname(existing);
             return existing;
         }
         User created = new User();
         created.setWxOpenid(openid);
         created.setUsername("wx_" + openid);
-        created.setNickname("微信用户");
+        created.setNickname(DEFAULT_NICKNAME);
         // 随机口令，只允许走小程序入口
         created.setPassword(passwordEncoder.encode(UUID.randomUUID().toString()));
         try {
             save(created);
-            return created;
         } catch (DuplicateKeyException exception) {
             // 并发下重复注册，回查已有账号
             User concurrent = findByOpenid(openid);
             if (concurrent == null) {
                 throw exception;
             }
+            ensureDefaultNickname(concurrent);
             return concurrent;
         }
+        ensureDefaultNickname(created);
+        return created;
     }
 
     @Override
@@ -230,6 +237,43 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
     private User findByOpenid(String openid) {
         return getOne(Wrappers.<User>lambdaQuery().eq(User::getWxOpenid, openid), false);
+    }
+
+    /**
+     * 占位昵称补上用户编号，避免多人同名。已经改过名字的不动。
+     */
+    private void ensureDefaultNickname(User user) {
+        if (user.getId() == null || !DEFAULT_NICKNAME.equals(user.getNickname())) {
+            return;
+        }
+        String nickname = nextDefaultNickname(user.getId());
+        update(Wrappers.<User>lambdaUpdate()
+                .eq(User::getId, user.getId())
+                .set(User::getNickname, nickname));
+        user.setNickname(nickname);
+    }
+
+    /** 优先「微信用户」加编号；这个名字已被占用时再补四位随机数。 */
+    private String nextDefaultNickname(Long userId) {
+        String withId = DEFAULT_NICKNAME + userId;
+        if (!nicknameTaken(withId, userId)) {
+            return withId;
+        }
+        ThreadLocalRandom random = ThreadLocalRandom.current();
+        for (int i = 0; i < 5; i++) {
+            String candidate = withId + random.nextInt(1000, 10000);
+            if (!nicknameTaken(candidate, userId)) {
+                return candidate;
+            }
+        }
+        return withId + UUID.randomUUID().toString().substring(0, 8);
+    }
+
+    private boolean nicknameTaken(String nickname, Long exceptUserId) {
+        Long count = baseMapper.selectCount(Wrappers.<User>lambdaQuery()
+                .eq(User::getNickname, nickname)
+                .ne(User::getId, exceptUserId));
+        return count != null && count > 0;
     }
 
     private void requireAdmin() {
