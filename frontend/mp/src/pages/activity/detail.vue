@@ -1,6 +1,6 @@
 <template>
   <view class="page">
-    <BrandNav />
+    <BrandNav show-back />
     <view class="body">
     <PageLoading v-if="loading" />
     <view v-else-if="errorMessage" class="center">{{ errorMessage }}</view>
@@ -30,6 +30,7 @@
         <text v-if="activity.replyNote" class="meta">答复：{{ activity.replyNote }}</text>
         <view class="share-row">
           <button class="ghost" hover-class="none" open-type="share">发给好友</button>
+          <button v-if="activity.canEdit && !editing" class="text-action inline-action" @tap="startEdit">修改活动</button>
         </view>
       </view>
 
@@ -42,7 +43,7 @@
         <button class="primary" @tap="onJoin">确认参加</button>
       </view>
 
-      <view v-if="activity.canEdit" class="card">
+      <view v-if="activity.canEdit && editing" class="card">
         <text class="section">修改活动</text>
         <DateTimeField
           v-model:date="editDate"
@@ -52,7 +53,10 @@
         />
         <input v-model="editName" class="field" placeholder="活动名称" />
         <input v-model="editLocation" class="field" placeholder="地点" />
-        <button class="text-action" :disabled="saving" @tap="onSave">保存修改</button>
+        <view class="edit-actions">
+          <button class="text-action inline-action muted-action" :disabled="saving" @tap="cancelEdit">取消</button>
+          <button class="save-action" :disabled="saving" @tap="onSave">保存</button>
+        </view>
       </view>
 
       <view class="card">
@@ -122,9 +126,9 @@
         </view>
       </view>
 
-      <view v-if="activity.canWithdraw || activity.canComplete" class="actions">
-        <button v-if="activity.canComplete" class="primary" @tap="onComplete">已参加</button>
-        <button v-if="activity.canWithdraw" class="danger" @tap="onWithdraw">撤回</button>
+      <view v-if="activity.canWithdraw || activity.canComplete" class="activity-actions">
+        <button v-if="activity.canWithdraw" class="withdraw-action" @tap="onWithdraw">撤回活动</button>
+        <button v-if="activity.canComplete" class="complete-action" @tap="onComplete">确认已参加</button>
       </view>
 
       <view v-if="showPeople" class="mask" @tap="showPeople = false">
@@ -180,6 +184,7 @@ const activity = ref<Activity | null>(null)
 const failedThumbs = reactive<Record<number, boolean>>({})
 const loading = ref(false)
 const saving = ref(false)
+const editing = ref(false)
 const errorMessage = ref('')
 const editName = ref('')
 const editDate = ref('')
@@ -433,6 +438,21 @@ function onJoinPeopleChange(event: { detail: { value: string } }) {
   joinIndex.value = Number(event.detail.value) || 0
 }
 
+function startEdit() {
+  if (!activity.value) {
+    return
+  }
+  fillEdit(activity.value)
+  editing.value = true
+}
+
+function cancelEdit() {
+  if (activity.value) {
+    fillEdit(activity.value)
+  }
+  editing.value = false
+}
+
 async function onSave() {
   if (!activity.value || saving.value) {
     return
@@ -455,6 +475,7 @@ async function onSave() {
       location: editLocation.value.trim(),
     })
     fillEdit(activity.value)
+    editing.value = false
     uni.showToast({ title: '已保存', icon: 'success' })
   } catch (error) {
     uni.showToast({ title: error instanceof Error ? error.message : '保存失败', icon: 'none' })
@@ -928,27 +949,26 @@ onShareAppMessage(() => ({
   background: #e8e2d8;
 }
 
-.actions {
+.activity-actions {
   display: flex;
-  align-items: center;
+  flex-direction: row;
+  align-items: stretch;
   gap: 10px;
-}
-
-.actions .primary {
-  flex: 1;
-  margin: 0;
+  margin-top: 4px;
 }
 
 .primary,
 .ghost,
-.danger {
+.save-action {
   border-radius: 999px;
   font-size: 14px;
 }
 
 .primary::after,
 .text-action::after,
-.danger::after {
+.save-action::after,
+.complete-action::after,
+.withdraw-action::after {
   border: none;
 }
 
@@ -982,6 +1002,56 @@ onShareAppMessage(() => ({
   margin: -4px -4px -4px 0;
 }
 
+.inline-action {
+  margin: 0;
+}
+
+.muted-action {
+  color: #8a8680;
+}
+
+.edit-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.save-action {
+  height: 42px;
+  line-height: 42px;
+  padding: 0 22px;
+  margin: 0;
+  border-radius: 12px;
+  background: #5b8f7a;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.withdraw-action,
+.complete-action {
+  flex: 1 1 0;
+  width: 0;
+  min-width: 0;
+  display: block;
+  box-sizing: border-box;
+  height: 44px;
+  line-height: 44px;
+  margin: 0;
+  padding: 0;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.complete-action {
+  background: #5b8f7a;
+  color: #fff;
+}
+
 .ghost {
   display: inline-flex;
   align-items: center;
@@ -998,14 +1068,9 @@ onShareAppMessage(() => ({
   border: none;
 }
 
-.danger {
-  flex-shrink: 0;
-  height: 44px;
-  line-height: 44px;
-  padding: 0 20px;
+.withdraw-action {
   background: #fff;
   color: #b0654a;
   border: 1px solid #e7cfc6;
-  margin: 0;
 }
 </style>
