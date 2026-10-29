@@ -55,6 +55,9 @@ public class ActivityResponse {
 
     private boolean owner;
 
+    /** 当前用户自己这边填的人数（发起人取活动人数，参与人取参与记录）。 */
+    private Integer myPeopleCount;
+
     private boolean canAdd;
 
     private boolean canEdit;
@@ -64,4 +67,13 @@ public class ActivityResponse {
     private boolean canComplete;
 
     private boolean canUpload;
+
+    /** 已参加的非发起人可退出。 */
+    private boolean canLeave;
+
+    /** 已参加且活动未结束时可改自己的人数。 */
+    private boolean canUpdatePeople;
+
+    /** 超级管理员对待确认活动可答复。 */
+    private boolean canReply;
 }

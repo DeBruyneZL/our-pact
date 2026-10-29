@@ -119,11 +119,15 @@ export interface Activity {
   items: ActivityItem[]
   photos: ActivityPhoto[]
   owner?: boolean
+  myPeopleCount?: number | null
   canAdd?: boolean
   canEdit?: boolean
   canWithdraw?: boolean
   canComplete?: boolean
   canUpload?: boolean
+  canLeave?: boolean
+  canUpdatePeople?: boolean
+  canReply?: boolean
 }
 
 export interface ActivitySubmitItem {

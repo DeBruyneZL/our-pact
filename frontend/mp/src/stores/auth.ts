@@ -12,6 +12,7 @@ export const useAuthStore = defineStore('auth', () => {
   let loadedFor = ''
 
   const displayName = computed(() => profile.value?.nickname || profile.value?.username || '用户')
+  const isSuperAdmin = computed(() => Boolean(profile.value?.superAdmin))
   /** 进行中的登录。并发调用共用这一次，避免后到的请求拿不到新令牌。 */
   let pendingLogin: Promise<void> | null = null
 
@@ -98,6 +99,7 @@ export const useAuthStore = defineStore('auth', () => {
     token,
     profile,
     displayName,
+    isSuperAdmin,
     silentLogin,
     ensureLogin,
     loadProfile,

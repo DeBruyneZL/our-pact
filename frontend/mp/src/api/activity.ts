@@ -50,6 +50,24 @@ export function joinActivity(shareCode: string, peopleCount: number): Promise<Ac
   return http.post<Activity>(`/activity/code/${encodeURIComponent(shareCode)}/join`, { peopleCount })
 }
 
+export function updateActivityPeople(id: number, peopleCount: number): Promise<Activity> {
+  return http.post<Activity>(`/activity/${id}/people`, { peopleCount })
+}
+
+export function leaveActivity(id: number): Promise<Activity> {
+  return http.post<Activity>(`/activity/${id}/leave`)
+}
+
+/** 管理端：全部活动分页。管理员看待确认时传 status=open。 */
+export function pageManageActivities(status?: ActivityStatus): Promise<ActivityPage> {
+  return http.post<ActivityPage>('/activity/manage/page', { pageNum: 1, pageSize: 50, status })
+}
+
+/** 管理员答复待确认活动。 */
+export function replyActivity(id: number, replyNote: string): Promise<Activity> {
+  return http.post<Activity>(`/activity/${id}/reply`, { replyNote })
+}
+
 export function updateActivity(id: number, payload: ActivityUpdatePayload): Promise<Activity> {
   return http.post<Activity>(`/activity/${id}/update`, payload)
 }

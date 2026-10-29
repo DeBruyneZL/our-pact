@@ -8,6 +8,14 @@
         <view class="create-btn" @tap="openCreate">发起</view>
       </view>
 
+      <view v-if="isAdmin" class="mode-tabs">
+        <view :class="listMode === 'mine' ? 'mode-tab active' : 'mode-tab'" @tap="switchMode('mine')">我的</view>
+        <view :class="listMode === 'pending' ? 'mode-tab active' : 'mode-tab'" @tap="switchMode('pending')">
+          待确认
+          <text v-if="pendingBadge" class="mode-badge">{{ pendingBadge }}</text>
+        </view>
+      </view>
+
       <PageLoading v-if="loading" :tip="loadingText" />
       <view v-else-if="statusText" class="center">{{ statusText }}</view>
       <template v-else>
@@ -23,6 +31,7 @@
           </view>
           <text class="meta">{{ row.when }}</text>
           <text class="meta">{{ row.summary }}</text>
+          <text v-if="row.showConfirm" class="confirm-hint">点进去可直接确认</text>
         </view>
       </template>
     </view>
@@ -53,10 +62,11 @@
 import { onShow } from '@dcloudio/uni-app'
 import { computed, ref } from 'vue'
 import { activityStatusLabel, type Activity, type ActivityStatus } from '@our-pact/shared'
-import { createActivity, pageMyActivities } from '@/api/activity'
+import { createActivity, pageManageActivities, pageMyActivities } from '@/api/activity'
 import BrandNav from '@/components/BrandNav.vue'
 import DateTimeField from '@/components/DateTimeField.vue'
 import PageLoading from '@/components/PageLoading.vue'
+import { CREATE_TEMPLATE_ID } from '@/config'
 import { useAuthStore } from '@/stores/auth'
 import {
   DEFAULT_ACTIVITY_LOCATION,
@@ -68,8 +78,12 @@ import {
 } from '@/utils/activityForm'
 import { setTabBarHidden, syncTabBar } from '@/utils/tabBar'
 
+type ListMode = 'mine' | 'pending'
+
 const auth = useAuthStore()
 const activities = ref<Activity[]>([])
+const pendingCount = ref(0)
+const listMode = ref<ListMode>('mine')
 const loading = ref(false)
 const errorMessage = ref('')
 const showCreate = ref(false)
@@ -82,16 +96,20 @@ const peopleIndex = ref(0)
 const autoName = ref('')
 
 const loadingText = '加载中'
-const emptyText = '还没有活动，可以先发起，菜之后大家一起加'
 const peopleOptions = PEOPLE_OPTIONS
 const minDate = computed(() => todayText())
+const isAdmin = computed(() => auth.isSuperAdmin)
+
+const emptyText = computed(() =>
+  listMode.value === 'pending' ? '没有待确认的活动' : '还没有活动，可以先发起，菜之后大家一起加',
+)
 
 const statusText = computed(() => {
   if (errorMessage.value) {
     return errorMessage.value
   }
   if (!activities.value.length) {
-    return emptyText
+    return emptyText.value
   }
   return ''
 })
@@ -99,6 +117,13 @@ const statusText = computed(() => {
 const countText = computed(() => {
   const total = activities.value.length
   return total > 0 ? `${total} 个` : ''
+})
+
+const pendingBadge = computed(() => {
+  if (pendingCount.value <= 0) {
+    return ''
+  }
+  return pendingCount.value > 99 ? '99+' : String(pendingCount.value)
 })
 
 const peopleLabel = computed(() => peopleOptions[peopleIndex.value] || '1人')
@@ -119,6 +144,7 @@ const activityCards = computed(() =>
       cardSkin: `card ${statusClass(item.status)}`,
       when: place ? `${when} · ${place}` : when,
       summary: `${who} 发起 · ${dishCount} 道菜 · 共 ${people} 人`,
+      showConfirm: listMode.value === 'pending' && item.status === 'open',
     }
   }),
 )
@@ -155,20 +181,56 @@ function openCreate() {
   showCreate.value = true
 }
 
+function switchMode(mode: ListMode) {
+  if (listMode.value === mode) {
+    return
+  }
+  listMode.value = mode
+  void load()
+}
+
 async function load() {
   loading.value = true
   errorMessage.value = ''
   try {
     await auth.ensureLogin()
-    const page = await pageMyActivities()
-    const list = Array.isArray(page?.list) ? page.list : []
-    activities.value = list
+    await auth.loadProfile()
+    if (!auth.isSuperAdmin && listMode.value === 'pending') {
+      listMode.value = 'mine'
+    }
+    if (auth.isSuperAdmin) {
+      requestAdminCreateSubscribe()
+      const pending = await pageManageActivities('open')
+      const pendingList = Array.isArray(pending?.list) ? pending.list : []
+      pendingCount.value = pendingList.length
+      if (listMode.value === 'pending') {
+        activities.value = pendingList
+      } else {
+        const mine = await pageMyActivities()
+        activities.value = Array.isArray(mine?.list) ? mine.list : []
+      }
+    } else {
+      pendingCount.value = 0
+      const mine = await pageMyActivities()
+      activities.value = Array.isArray(mine?.list) ? mine.list : []
+    }
   } catch (error) {
     activities.value = []
     errorMessage.value = error instanceof Error ? error.message : '加载失败'
   } finally {
     loading.value = false
   }
+}
+
+/** 管理员授权后，才有新活动时能收到「新活动发布提醒」。 */
+function requestAdminCreateSubscribe() {
+  if (!CREATE_TEMPLATE_ID || !auth.isSuperAdmin) {
+    return
+  }
+  uni.requestSubscribeMessage({
+    tmplIds: [CREATE_TEMPLATE_ID],
+    fail: () => {},
+  })
 }
 
 function openDetail(id: number) {
@@ -247,6 +309,48 @@ onShow(() => {
   align-items: center;
   gap: 8px;
   padding: 4px 4px 12px;
+}
+
+.mode-tabs {
+  display: flex;
+  gap: 8px;
+  margin: 0 4px 12px;
+}
+
+.mode-tab {
+  position: relative;
+  flex: 1;
+  height: 34px;
+  line-height: 34px;
+  text-align: center;
+  border-radius: 999px;
+  background: #efeae2;
+  color: #5c5852;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.mode-tab.active {
+  background: #e6f0eb;
+  color: #3d6f5c;
+}
+
+.mode-badge {
+  margin-left: 4px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: #5b8f7a;
+  color: #fff;
+  font-size: 11px;
+  line-height: 16px;
+}
+
+.confirm-hint {
+  display: block;
+  margin-top: 6px;
+  color: #3d6f5c;
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .head-title {

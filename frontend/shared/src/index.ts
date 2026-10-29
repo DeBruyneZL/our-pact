@@ -1,6 +1,6 @@
 export { http, request } from './request'
 export { fetchCurrentUser, login, logout, updateProfile, uploadAvatar } from './api/auth'
-export { pageUsers } from './api/user'
+export { pageUsers, updateUserAdmin } from './api/user'
 export type { UserPageQuery } from './api/user'
 export {
   deleteActivity,

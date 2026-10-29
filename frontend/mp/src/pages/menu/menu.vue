@@ -39,39 +39,40 @@
                 @error="onCoverError(card.id)"
               />
               <view v-else class="cover cover-placeholder">暂无封面</view>
-              <view v-if="card.showPick" class="pick-badge">{{ checkMark }}</view>
             </view>
             <view class="dish-info">
               <view class="dish-body">
-                <text class="dish-name">{{ card.title }}</text>
-                <text class="dish-desc">{{ card.extra }}</text>
+                <text class="dish-name">{{ card.dishTitle }}</text>
+                <text class="dish-desc">{{ card.dishDesc }}</text>
               </view>
               <view
-                v-if="card.showPlus"
-                :class="card.plusSkin"
-                @tap.stop="onPlus(card.id)"
+                class="plus"
+                :class="{ done: card.plusDone }"
+                @tap.stop="onQuickAdd(card.id)"
               >
-                {{ card.plusText }}
+                <text class="plus-text">{{ card.plusText }}</text>
               </view>
             </view>
           </view>
           <view v-if="card.optionGroups.length" class="option-block" @tap.stop>
             <view v-for="group in card.optionGroups" :key="group.id" class="option-group">
-              <text class="option-label">{{ group.name }}（可选）</text>
+              <text class="option-label">{{ group.groupName }}（可选）</text>
               <view class="chip-row">
                 <view
-                  :class="optionChipClass(card.id, group.id, null)"
+                  class="chip"
+                  :class="{ active: isOptionActive(card.id, group.id, null) }"
                   @tap="pickOption(card.id, group.id, null)"
                 >
-                  不选
+                  <text class="chip-text">不选</text>
                 </view>
                 <view
-                  v-for="value in group.values"
-                  :key="value.id"
-                  :class="optionChipClass(card.id, group.id, value.id)"
-                  @tap="pickOption(card.id, group.id, value.id)"
+                  v-for="choice in group.choices"
+                  :key="choice.id"
+                  class="chip"
+                  :class="{ active: isOptionActive(card.id, group.id, choice.id) }"
+                  @tap="pickOption(card.id, group.id, choice.id)"
                 >
-                  {{ value.label }}
+                  <text class="chip-text">{{ choice.label }}</text>
                 </view>
               </view>
             </view>
@@ -166,11 +167,30 @@
           @tap="previewDetail"
         />
         <view v-else class="detail-cover detail-cover-empty">暂无图片</view>
-        <text class="sheet-title detail-title">{{ detailView.title }}</text>
-        <text class="detail-desc">{{ detailView.extra }}</text>
-        <view v-for="line in detailView.options" :key="line.id" class="detail-option">
-          <text class="detail-option-name">{{ line.title }}</text>
-          <text class="detail-option-value">{{ line.extra }}</text>
+        <text class="sheet-title detail-title">{{ detailView.dishTitle }}</text>
+        <text class="detail-desc">{{ detailView.dishDesc }}</text>
+        <view v-if="detailView.optionGroups.length" class="option-block detail-options">
+          <view v-for="group in detailView.optionGroups" :key="group.id" class="option-group">
+            <text class="option-label">{{ group.groupName }}（可选）</text>
+            <view class="chip-row">
+              <view
+                class="chip"
+                :class="{ active: isOptionActive(detailView.dishId, group.id, null) }"
+                @tap="pickOption(detailView.dishId, group.id, null)"
+              >
+                <text class="chip-text">不选</text>
+              </view>
+              <view
+                v-for="choice in group.choices"
+                :key="choice.id"
+                class="chip"
+                :class="{ active: isOptionActive(detailView.dishId, group.id, choice.id) }"
+                @tap="pickOption(detailView.dishId, group.id, choice.id)"
+              >
+                <text class="chip-text">{{ choice.label }}</text>
+              </view>
+            </view>
+          </view>
         </view>
         <button class="cart-btn detail-action" :disabled="detailView.actionOff" @tap="onDetailAction">
           {{ detailView.actionText }}
@@ -184,7 +204,7 @@
 <script setup lang="ts">
 import { onShow } from '@dcloudio/uni-app'
 import { computed, reactive, ref, watch } from 'vue'
-import type { ActivityItem, Dish, DishCategory, DishOptionGroup } from '@our-pact/shared'
+import type { ActivityItem, Dish, DishCategory } from '@our-pact/shared'
 import { addActivityItems, createActivity, getActivity } from '@/api/activity'
 import type { ActivityItemPayload } from '@/api/activity'
 import { listCategories, listDishes } from '@/api/menu'
@@ -213,8 +233,31 @@ interface SelectedSummary {
 /** 每道菜各组已选值；null 表示该组不选。 */
 type OptionPickMap = Record<number, number | null>
 
-const CHECK_MARK = String.fromCharCode(0x2713)
+/** 列表/详情用的特殊项视图，避开 values/name 在小程序里的字段冲突。 */
+interface OptionChoiceView {
+  id: number
+  label: string
+}
+
+interface OptionGroupView {
+  id: number
+  groupName: string
+  choices: OptionChoiceView[]
+}
+
 const PLUS_MARK = '+'
+const CHECK_MARK = String.fromCharCode(0x2713)
+
+function textOr(value: unknown, fallback: string): string {
+  if (typeof value === 'string') {
+    const text = value.trim()
+    return text || fallback
+  }
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return String(value)
+  }
+  return fallback
+}
 
 const auth = useAuthStore()
 const dishes = ref<Dish[]>([])
@@ -247,7 +290,6 @@ const paneHeight = ref(480)
 const cartBarBottom = ref(66)
 const PENDING_KEY = 'our-pact.pending-activity'
 const loadingText = '加载中'
-const checkMark = CHECK_MARK
 const paneStyle = computed(() => ({ height: `${paneHeight.value}px` }))
 const cartBarStyle = computed(() => ({ bottom: `${cartBarBottom.value}px` }))
 
@@ -347,29 +389,46 @@ const catCards = computed(() =>
 )
 
 const showDetail = computed(() => detailId.value > 0)
+
+function usableOptionGroups(dish?: Dish | null): OptionGroupView[] {
+  if (!dish) {
+    return []
+  }
+  return (dish.optionGroups || [])
+    .filter((group) => group.id != null)
+    .map((group) => {
+      const choices = (group.values || [])
+        .filter((value) => value.id != null && textOr(value.label, ''))
+        .map((value) => ({
+          id: value.id,
+          label: textOr(value.label, ''),
+        }))
+      return {
+        id: group.id,
+        groupName: textOr(group.name, '特殊项'),
+        choices,
+      }
+    })
+    .filter((group) => group.choices.length > 0)
+}
+
 const detailView = computed(() => {
   const dish = dishes.value.find((item) => item.id === detailId.value)
   const coverSrc = dish?.imageUrl && !failedCovers[dish.id] ? absoluteUrl(dish.imageUrl) : ''
   const pending = Boolean(pendingActivity.value)
   const picked = Boolean(dish && selected[dish.id])
   const locked = Boolean(dish && addedDishIds.value.includes(dish.id) && !dish.allowRepeat)
-  const options = (dish?.optionGroups || [])
-    .map((group) => ({
-      id: String(group.id),
-      title: group.name || '',
-      extra: (group.values || []).map((value) => value.label).filter(Boolean).join('、'),
-    }))
-    .filter((line) => line.title || line.extra)
   let actionText = picked ? '取消选择' : '选上这道'
   if (pending) {
     actionText = locked ? '已经加过' : '加上这道'
   }
   return {
-    title: dish?.name || '',
-    extra: dish?.description || '家常味道',
+    dishId: dish?.id || 0,
+    dishTitle: textOr(dish?.name, ''),
+    dishDesc: textOr(dish?.description, '家常味道'),
     coverSrc,
     showCover: Boolean(coverSrc),
-    options,
+    optionGroups: usableOptionGroups(dish),
     actionText,
     actionOff: !dish || (pending && locked) || addingDishId.value === detailId.value,
   }
@@ -383,7 +442,7 @@ const dishCards = computed(() => {
     const added = addedDishIds.value.includes(dish.id)
     const locked = added && !repeatable
     const coverSrc = dish.imageUrl && !failedCovers[dish.id] ? absoluteUrl(dish.imageUrl) : ''
-    const groups = (dish.optionGroups || []).filter((group) => group.values?.length)
+    const done = (pending && locked) || (!pending && picked)
     let skin = 'dish-card'
     if (pending && locked) {
       skin = 'dish-card added'
@@ -392,16 +451,14 @@ const dishCards = computed(() => {
     }
     return {
       id: dish.id,
-      title: dish.name || '',
-      extra: dish.description || '家常味道',
+      dishTitle: textOr(dish.name, '未命名菜品'),
+      dishDesc: textOr(dish.description, '家常味道'),
       coverSrc,
       showCover: Boolean(coverSrc),
-      showPick: !pending && picked,
-      showPlus: pending,
-      plusText: locked ? CHECK_MARK : PLUS_MARK,
-      plusSkin: locked ? 'plus done' : 'plus',
+      plusDone: done,
+      plusText: done ? CHECK_MARK : PLUS_MARK,
       skin,
-      optionGroups: groups as DishOptionGroup[],
+      optionGroups: usableOptionGroups(dish),
     }
   })
 })
@@ -419,12 +476,12 @@ function ensureOptionPicks(dish: Dish) {
   optionPicks[dish.id] = picks
 }
 
-function optionChipClass(dishId: number, groupId: number, valueId: number | null) {
+function isOptionActive(dishId: number, groupId: number, valueId: number | null) {
   const current = optionPicks[dishId]?.[groupId]
-  const active = current === undefined || current === null
-    ? valueId == null
-    : current === valueId
-  return active ? 'chip active' : 'chip'
+  if (current === undefined || current === null) {
+    return valueId == null
+  }
+  return current === valueId
 }
 
 function pickOption(dishId: number, groupId: number, valueId: number | null) {
@@ -555,6 +612,25 @@ function onDetailAction() {
     selected[dishId] = true
   }
   updatePaneHeight()
+}
+
+/** 列表上的添加按钮：不打开详情，直接选上或加到活动。 */
+function onQuickAdd(dishId: number) {
+  if (pendingActivity.value) {
+    void onPlus(dishId)
+    return
+  }
+  if (selected[dishId]) {
+    uni.showToast({ title: '已经选上了', icon: 'none' })
+    return
+  }
+  const dish = dishes.value.find((entry) => entry.id === dishId)
+  if (dish) {
+    ensureOptionPicks(dish)
+  }
+  selected[dishId] = true
+  updatePaneHeight()
+  uni.showToast({ title: '已选上', icon: 'success' })
 }
 
 function openCartSheet() {
@@ -883,7 +959,7 @@ onShow(() => {
   border: 1px solid #e5e1d8;
   border-radius: 12px;
   margin-bottom: 8px;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .dish-card.added {
@@ -925,18 +1001,24 @@ onShow(() => {
 
 .chip-row {
   display: flex;
+  flex-direction: row;
   flex-wrap: wrap;
-  gap: 6px;
+  align-items: center;
 }
 
 .chip {
-  padding: 4px 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 6px 6px 0;
+  padding: 5px 12px;
   border-radius: 999px;
   border: 1px solid #e5e1d8;
   background: #f7f5f0;
   color: #5c5852;
   font-size: 12px;
-  line-height: 1.4;
+  line-height: 1.3;
+  box-sizing: border-box;
 }
 
 .chip.active {
@@ -946,14 +1028,20 @@ onShow(() => {
   font-weight: 700;
 }
 
+.chip-text {
+  font-size: 12px;
+  line-height: 1.3;
+  color: inherit;
+}
+
 .plus {
   position: relative;
   flex-shrink: 0;
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: #5b8f7a;
-  color: #fff;
+  background: #aed2f0;
+  color: #3f4951;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -964,8 +1052,18 @@ onShow(() => {
 }
 
 .plus.done {
-  background: #8aa89a;
-  font-size: 18px;
+  background: #aed2f0;
+}
+
+.plus-text {
+  color: #3f4951;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.plus.done .plus-text {
+  font-size: 16px;
 }
 
 .dish-card.selected {
@@ -1014,22 +1112,6 @@ onShow(() => {
   color: #5c5852;
   font-size: 13px;
   line-height: 1.45;
-}
-
-.pick-badge {
-  position: absolute;
-  right: 4px;
-  bottom: 4px;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  background: #5b8f7a;
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 12px;
-  line-height: 1;
 }
 
 .note-placeholder {
@@ -1191,24 +1273,10 @@ onShow(() => {
   line-height: 1.6;
 }
 
-.detail-option {
-  margin-top: 10px;
-  padding: 10px 12px;
-  border-radius: 12px;
-  background: #f7f5f0;
-}
-
-.detail-option-name {
-  display: block;
-  font-size: 12px;
-  color: #8a8680;
-}
-
-.detail-option-value {
-  display: block;
-  margin-top: 2px;
-  font-size: 14px;
-  color: #2c2a26;
+.detail-options {
+  margin-top: 12px;
+  padding: 0;
+  border-top: none;
 }
 
 .detail-action {

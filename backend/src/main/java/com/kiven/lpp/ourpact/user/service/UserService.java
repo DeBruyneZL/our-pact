@@ -3,6 +3,7 @@ package com.kiven.lpp.ourpact.user.service;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.kiven.lpp.ourpact.common.PageResult;
 import com.kiven.lpp.ourpact.user.dto.ProfileUpdateRequest;
+import com.kiven.lpp.ourpact.user.dto.UserAdminUpdateRequest;
 import com.kiven.lpp.ourpact.user.dto.UserPageQuery;
 import com.kiven.lpp.ourpact.user.dto.UserProfileResponse;
 import com.kiven.lpp.ourpact.user.entity.User;
@@ -40,6 +41,11 @@ public interface UserService extends IService<User> {
      * 管理端分页。仅超级管理员可查，不返回密码和 openid。
      */
     PageResult<UserProfileResponse> page(UserPageQuery query);
+
+    /**
+     * 设置或取消超级管理员。不能取消自己。
+     */
+    UserProfileResponse updateSuperAdmin(Long userId, UserAdminUpdateRequest request);
 
     /**
      * 组装对外资料，头像换成可访问路径。

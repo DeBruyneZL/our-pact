@@ -9,3 +9,8 @@ export interface UserPageQuery extends PageQuery {
 export function pageUsers(query: UserPageQuery): Promise<PageResult<UserProfile>> {
   return http.post<PageResult<UserProfile>>('/user/page', query)
 }
+
+/** 设置或取消超级管理员。 */
+export function updateUserAdmin(id: number, superAdmin: boolean): Promise<UserProfile> {
+  return http.post<UserProfile>(`/user/${id}/admin`, { superAdmin })
+}

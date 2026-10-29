@@ -74,6 +74,16 @@ public class ActivityController {
         return Result.success(activityService.join(shareCode, request));
     }
 
+    @PostMapping("/{id}/people")
+    public Result<ActivityResponse> updatePeople(@PathVariable Long id, @Valid @RequestBody ActivityJoinRequest request) {
+        return Result.success(activityService.updatePeople(id, request));
+    }
+
+    @PostMapping("/{id}/leave")
+    public Result<ActivityResponse> leave(@PathVariable Long id) {
+        return Result.success(activityService.leave(id));
+    }
+
     @GetMapping("/{id}")
     public Result<ActivityResponse> detail(@PathVariable Long id) {
         return Result.success(activityService.detail(id));

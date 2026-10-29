@@ -15,6 +15,7 @@ import com.kiven.lpp.ourpact.common.PageResult;
 import com.kiven.lpp.ourpact.common.PageUtil;
 import com.kiven.lpp.ourpact.common.YesNo;
 import com.kiven.lpp.ourpact.user.dto.ProfileUpdateRequest;
+import com.kiven.lpp.ourpact.user.dto.UserAdminUpdateRequest;
 import com.kiven.lpp.ourpact.user.dto.UserPageQuery;
 import com.kiven.lpp.ourpact.user.dto.UserProfileResponse;
 import com.kiven.lpp.ourpact.user.entity.User;
@@ -131,6 +132,29 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         Page<UserProfileResponse> mapped = new Page<>(raw.getCurrent(), raw.getSize(), raw.getTotal());
         mapped.setRecords(raw.getRecords().stream().map(this::toListItem).collect(Collectors.toList()));
         return PageUtil.toResult(mapped);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Throwable.class)
+    public UserProfileResponse updateSuperAdmin(Long userId, UserAdminUpdateRequest request) {
+        requireAdmin();
+        long currentId = StpUtil.getLoginIdAsLong();
+        if (userId == null) {
+            throw new BusinessException("用户不存在");
+        }
+        if (userId.equals(currentId) && !Boolean.TRUE.equals(request.getSuperAdmin())) {
+            throw new BusinessException("不能取消自己的管理员");
+        }
+        User target = requireUser(userId);
+        int flag = Boolean.TRUE.equals(request.getSuperAdmin()) ? YesNo.YES.getValue() : YesNo.NO.getValue();
+        update(Wrappers.<User>lambdaUpdate()
+                .eq(User::getId, target.getId())
+                .set(User::getSuperAdmin, flag));
+        User latest = getById(userId);
+        if (latest == null) {
+            throw new BusinessException("用户不存在");
+        }
+        return toListItem(latest);
     }
 
     @Override

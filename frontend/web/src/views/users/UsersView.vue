@@ -33,10 +33,16 @@
       <el-table-column label="手机号" min-width="140">
         <template #default="{ row }">{{ row.phone || '—' }}</template>
       </el-table-column>
-      <el-table-column label="身份" width="120">
+      <el-table-column label="管理员" width="120">
         <template #default="{ row }">
-          <el-tag v-if="row.superAdmin" type="danger" effect="plain">超级管理员</el-tag>
-          <span v-else>普通用户</span>
+          <el-switch
+            :model-value="Boolean(row.superAdmin)"
+            :loading="switchingId === row.id"
+            inline-prompt
+            active-text="是"
+            inactive-text="否"
+            @change="(value: string | number | boolean) => onToggleAdmin(row, Boolean(value))"
+          />
         </template>
       </el-table-column>
       <el-table-column label="注册时间" min-width="180">
@@ -62,7 +68,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { formatDateTime, pageUsers, type UserProfile } from '@our-pact/shared'
+import { formatDateTime, pageUsers, updateUserAdmin, type UserProfile } from '@our-pact/shared'
 
 const users = ref<UserProfile[]>([])
 const loading = ref(false)
@@ -70,6 +76,7 @@ const keyword = ref('')
 const pageNum = ref(1)
 const pageSize = ref(10)
 const total = ref(0)
+const switchingId = ref(0)
 
 function initial(row: UserProfile) {
   return (row.nickname || row.username || '用').slice(0, 1)
@@ -106,6 +113,25 @@ function onSizeChange() {
     return
   }
   void load()
+}
+
+async function onToggleAdmin(row: UserProfile, superAdmin: boolean) {
+  if (Boolean(row.superAdmin) === superAdmin || switchingId.value) {
+    return
+  }
+  switchingId.value = row.id
+  try {
+    const updated = await updateUserAdmin(row.id, superAdmin)
+    const index = users.value.findIndex((item) => item.id === row.id)
+    if (index >= 0) {
+      users.value[index] = { ...users.value[index], ...updated }
+    }
+    ElMessage.success(superAdmin ? '已设为管理员' : '已取消管理员')
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : '设置失败')
+  } finally {
+    switchingId.value = 0
+  }
 }
 
 onMounted(load)

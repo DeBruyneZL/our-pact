@@ -31,6 +31,7 @@ import com.kiven.lpp.ourpact.activity.mapper.ActivityNoticeMapper;
 import com.kiven.lpp.ourpact.activity.mapper.ActivityParticipantMapper;
 import com.kiven.lpp.ourpact.activity.mapper.ActivityPhotoMapper;
 import com.kiven.lpp.ourpact.activity.service.ActivityCancelNotifier;
+import com.kiven.lpp.ourpact.activity.service.ActivityCreateNotifier;
 import com.kiven.lpp.ourpact.activity.service.ActivityItemOptionService;
 import com.kiven.lpp.ourpact.activity.service.ActivityItemService;
 import com.kiven.lpp.ourpact.activity.service.ActivityPhotoStorage;
@@ -118,6 +119,8 @@ public class ActivityServiceImpl implements ActivityService {
 
     private final ActivityCancelNotifier cancelNotifier;
 
+    private final ActivityCreateNotifier createNotifier;
+
     private final SecureRandom random = new SecureRandom();
 
     public ActivityServiceImpl(ActivityMapper activityMapper,
@@ -134,7 +137,8 @@ public class ActivityServiceImpl implements ActivityService {
                                DishOptionValueMapper dishOptionValueMapper,
                                DishImageStorage dishImageStorage,
                                AvatarStorage avatarStorage,
-                               ActivityCancelNotifier cancelNotifier) {
+                               ActivityCancelNotifier cancelNotifier,
+                               ActivityCreateNotifier createNotifier) {
         this.activityMapper = activityMapper;
         this.participantMapper = participantMapper;
         this.noticeMapper = noticeMapper;
@@ -150,6 +154,7 @@ public class ActivityServiceImpl implements ActivityService {
         this.dishImageStorage = dishImageStorage;
         this.avatarStorage = avatarStorage;
         this.cancelNotifier = cancelNotifier;
+        this.createNotifier = createNotifier;
     }
 
     @Override
@@ -163,10 +168,32 @@ public class ActivityServiceImpl implements ActivityService {
         activity.setLocation(request.getLocation().trim());
         activity.setUserId(userId);
         activity.setPeopleCount(normalizePeopleCount(request.getPeopleCount()));
-        activity.setStatus(ActivityStatus.OPEN.getValue());
+        // 管理员发起直接进入待参加，普通用户仍待确认并推给管理员
+        boolean adminCreator = YesNo.YES.getValue().equals(initiator.getSuperAdmin());
+        if (adminCreator) {
+            activity.setStatus(ActivityStatus.REPLIED.getValue());
+            activity.setRepliedAt(LocalDateTime.now());
+        } else {
+            activity.setStatus(ActivityStatus.OPEN.getValue());
+        }
         insertWithShareCode(activity);
         if (request.getItems() != null && !request.getItems().isEmpty()) {
             saveItems(activity.getId(), userId, request.getItems());
+        }
+        if (!adminCreator) {
+            String publisherName = displayName(initiator);
+            if (TransactionSynchronizationManager.isSynchronizationActive()) {
+                TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                    @Override
+                    public void afterCommit() {
+                        try {
+                            createNotifier.notifyCreated(activity, publisherName);
+                        } catch (Exception exception) {
+                            log.warn("新活动推送失败 activityId={}：{}", activity.getId(), exception.getMessage());
+                        }
+                    }
+                });
+            }
         }
         return loadDetail(activity.getId(), userId);
     }
@@ -228,6 +255,69 @@ public class ActivityServiceImpl implements ActivityService {
             return loadDetail(activity.getId(), userId);
         }
         return loadDetail(activity.getId(), userId);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Throwable.class)
+    public ActivityResponse updatePeople(Long id, ActivityJoinRequest request) {
+        long userId = currentUserId();
+        Activity activity = requireActivity(id);
+        if (!canAcceptMember(activity)) {
+            throw new BusinessException(closedMessage(activity));
+        }
+        int count = normalizePeopleCount(request.getPeopleCount());
+        if (activity.getUserId().equals(userId)) {
+            activityMapper.update(null, Wrappers.<Activity>lambdaUpdate()
+                    .eq(Activity::getId, id)
+                    .set(Activity::getPeopleCount, count));
+            return loadDetail(id, userId);
+        }
+        ActivityParticipant participant = participantMapper.selectOne(Wrappers.<ActivityParticipant>lambdaQuery()
+                .eq(ActivityParticipant::getActivityId, id)
+                .eq(ActivityParticipant::getUserId, userId));
+        if (participant == null) {
+            throw new BusinessException("加入活动后才能改人数");
+        }
+        participantMapper.update(null, Wrappers.<ActivityParticipant>lambdaUpdate()
+                .eq(ActivityParticipant::getId, participant.getId())
+                .set(ActivityParticipant::getPeopleCount, count));
+        return loadDetail(id, userId);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Throwable.class)
+    public ActivityResponse leave(Long id) {
+        long userId = currentUserId();
+        Activity activity = requireActivity(id);
+        if (activity.getUserId().equals(userId)) {
+            throw new BusinessException("发起人不能退出，只能取消活动");
+        }
+        if (!canAcceptMember(activity)) {
+            throw new BusinessException(closedMessage(activity));
+        }
+        ActivityParticipant participant = participantMapper.selectOne(Wrappers.<ActivityParticipant>lambdaQuery()
+                .eq(ActivityParticipant::getActivityId, id)
+                .eq(ActivityParticipant::getUserId, userId));
+        if (participant == null) {
+            throw new BusinessException("你还没有参加这个活动");
+        }
+        User leaver = userMapper.selectById(userId);
+        String leaverName = displayName(leaver);
+        removeUserItems(id, userId);
+        participantMapper.deleteById(participant.getId());
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    try {
+                        cancelNotifier.notifyLeft(activity, leaverName);
+                    } catch (Exception exception) {
+                        log.warn("退出推送失败 activityId={}：{}", id, exception.getMessage());
+                    }
+                }
+            });
+        }
+        return loadDetail(id, userId);
     }
 
     @Override
@@ -636,10 +726,21 @@ public class ActivityServiceImpl implements ActivityService {
                                         Map<Long, List<ActivityItemOption>> optionMap,
                                         List<ActivityPhoto> photos) {
         boolean owner = activity.getUserId().equals(userId);
-        boolean member = owner || participants.stream().anyMatch(item -> item.getUserId().equals(userId));
+        boolean joined = participants.stream().anyMatch(item -> item.getUserId().equals(userId));
+        boolean member = owner || joined;
+        boolean admin = isAdmin(userId);
         boolean open = ActivityStatus.OPEN.getValue().equals(activity.getStatus());
         boolean replied = ActivityStatus.REPLIED.getValue().equals(activity.getStatus());
         boolean completed = ActivityStatus.COMPLETED.getValue().equals(activity.getStatus());
+        boolean active = open || replied;
+        int myPeople = peopleCount(activity.getPeopleCount());
+        if (!owner) {
+            myPeople = participants.stream()
+                    .filter(item -> item.getUserId().equals(userId))
+                    .findFirst()
+                    .map(item -> peopleCount(item.getPeopleCount()))
+                    .orElse(1);
+        }
         ActivityResponse response = new ActivityResponse();
         response.setId(activity.getId());
         response.setName(activity.getName());
@@ -660,13 +761,30 @@ public class ActivityServiceImpl implements ActivityService {
         response.setParticipants(toParticipants(activity, users, participants));
         response.setItems(toItems(items, optionMap, users));
         response.setPhotos(toPhotos(photos, users));
+        response.setMyPeopleCount(member ? myPeople : null);
         response.setOwner(owner);
-        response.setCanAdd(member && (open || replied));
+        response.setCanAdd(member && active);
         response.setCanEdit(owner && open);
-        response.setCanWithdraw(owner && (open || replied));
-        response.setCanComplete(owner && (open || replied));
+        response.setCanWithdraw(owner && active);
+        response.setCanComplete(owner && active);
         response.setCanUpload(member && completed);
+        response.setCanLeave(joined && !owner && active);
+        response.setCanUpdatePeople(member && active);
+        response.setCanReply(admin && open);
         return response;
+    }
+
+    /** 退出时清掉该用户加的菜及特殊项。 */
+    private void removeUserItems(Long activityId, long userId) {
+        List<ActivityItem> items = itemService.list(Wrappers.<ActivityItem>lambdaQuery()
+                .eq(ActivityItem::getActivityId, activityId)
+                .eq(ActivityItem::getAddedByUserId, userId));
+        if (items.isEmpty()) {
+            return;
+        }
+        List<Long> itemIds = items.stream().map(ActivityItem::getId).toList();
+        optionMapper.delete(Wrappers.<ActivityItemOption>lambdaQuery().in(ActivityItemOption::getItemId, itemIds));
+        itemService.removeByIds(itemIds);
     }
 
     private List<ActivityParticipantResponse> toParticipants(Activity activity,

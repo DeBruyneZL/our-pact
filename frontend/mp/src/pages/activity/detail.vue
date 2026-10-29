@@ -43,6 +43,38 @@
         <button class="primary" @tap="onJoin">确认参加</button>
       </view>
 
+      <view v-if="showMemberTools" class="card">
+        <text class="section">我的参加</text>
+        <text class="meta">可以改你这边几个人来；退出后你加的菜会一并移除。</text>
+        <picker
+          v-if="activity.canUpdatePeople"
+          mode="selector"
+          :range="peopleOptions"
+          :value="myPeopleIndex"
+          @change="onMyPeopleChange"
+        >
+          <view class="field">{{ myPeopleLabel }}</view>
+        </picker>
+        <view class="member-actions">
+          <button
+            v-if="activity.canUpdatePeople"
+            class="save-action member-save"
+            :disabled="savingPeople"
+            @tap="onSavePeople"
+          >
+            保存人数
+          </button>
+          <button v-if="activity.canLeave" class="leave-action" :disabled="leaving" @tap="onLeave">退出活动</button>
+        </view>
+      </view>
+
+      <view v-if="activity.canReply" class="card reply-card">
+        <text class="section">确认活动</text>
+        <text class="meta">确认后活动进入待参加，大家仍可继续加菜。</text>
+        <input v-model="replyNote" class="field" placeholder="可选：答复备注" placeholder-class="placeholder" />
+        <button class="primary" :disabled="replying" @tap="onReply">确认活动</button>
+      </view>
+
       <view v-if="activity.canEdit && editing" class="card">
         <text class="section">修改活动</text>
         <DateTimeField
@@ -160,20 +192,24 @@ import {
   getActivity,
   getActivityByCode,
   joinActivity,
+  leaveActivity,
+  replyActivity,
   updateActivity,
+  updateActivityPeople,
   uploadActivityPhoto,
   withdrawActivity,
 } from '@/api/activity'
 import BrandNav from '@/components/BrandNav.vue'
 import DateTimeField from '@/components/DateTimeField.vue'
 import PageLoading from '@/components/PageLoading.vue'
-import { absoluteUrl, CANCEL_TEMPLATE_ID } from '@/config'
+import { absoluteUrl, CANCEL_TEMPLATE_ID, LEAVE_TEMPLATE_ID } from '@/config'
 import { useAuthStore } from '@/stores/auth'
 import {
   PEOPLE_OPTIONS,
   assertFutureSchedule,
   defaultActivityName,
   peopleCountOf,
+  peopleIndexOf,
   todayText,
 } from '@/utils/activityForm'
 
@@ -191,10 +227,16 @@ const editDate = ref('')
 const editTime = ref('')
 const editLocation = ref('')
 const joinIndex = ref(0)
+const myPeopleIndex = ref(0)
+const savingPeople = ref(false)
+const leaving = ref(false)
+const replying = ref(false)
+const replyNote = ref('')
 const showPeople = ref(false)
 const peopleOptions = PEOPLE_OPTIONS
 const minDate = computed(() => todayText())
 const joinPeopleLabel = computed(() => peopleOptions[joinIndex.value] || '1人')
+const myPeopleLabel = computed(() => peopleOptions[myPeopleIndex.value] || '1人')
 const editAutoName = ref('')
 let activityId = 0
 let shareCode = ''
@@ -382,6 +424,11 @@ const showJoin = computed(() => {
   return !joined && (current.status === 'open' || current.status === 'replied')
 })
 
+const showMemberTools = computed(() => {
+  const current = activity.value
+  return Boolean(current && (current.canUpdatePeople || current.canLeave))
+})
+
 function statusLabel(status: ActivityStatus) {
   return activityStatusLabel(status)
 }
@@ -416,11 +463,17 @@ async function load() {
       activity.value = await getActivity(activityId)
     }
     fillEdit(activity.value)
+    syncMyPeopleIndex(activity.value)
+    requestOwnerLeaveSubscribe(activity.value)
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : '加载失败'
   } finally {
     loading.value = false
   }
+}
+
+function syncMyPeopleIndex(current: Activity) {
+  myPeopleIndex.value = peopleIndexOf(current.myPeopleCount || current.peopleCount || 1)
 }
 
 function onEditDateTimeChange(payload: { date: string; time: string }) {
@@ -436,6 +489,67 @@ function onEditDateTimeChange(payload: { date: string; time: string }) {
 
 function onJoinPeopleChange(event: { detail: { value: string } }) {
   joinIndex.value = Number(event.detail.value) || 0
+}
+
+function onMyPeopleChange(event: { detail: { value: string } }) {
+  myPeopleIndex.value = Number(event.detail.value) || 0
+}
+
+async function onSavePeople() {
+  if (!activity.value || savingPeople.value || !activity.value.canUpdatePeople) {
+    return
+  }
+  savingPeople.value = true
+  try {
+    activity.value = await updateActivityPeople(activity.value.id, peopleCountOf(myPeopleIndex.value))
+    syncMyPeopleIndex(activity.value)
+    uni.showToast({ title: '人数已更新', icon: 'success' })
+  } catch (error) {
+    uni.showToast({ title: error instanceof Error ? error.message : '保存失败', icon: 'none' })
+  } finally {
+    savingPeople.value = false
+  }
+}
+
+function onLeave() {
+  if (!activity.value || leaving.value || !activity.value.canLeave) {
+    return
+  }
+  uni.showModal({
+    title: '退出活动',
+    content: '退出后你加的菜会移除，并发消息给发起人',
+    success: async (res) => {
+      if (!res.confirm || !activity.value) {
+        return
+      }
+      leaving.value = true
+      try {
+        activity.value = await leaveActivity(activity.value.id)
+        syncMyPeopleIndex(activity.value)
+        uni.showToast({ title: '已退出', icon: 'success' })
+      } catch (error) {
+        uni.showToast({ title: error instanceof Error ? error.message : '退出失败', icon: 'none' })
+      } finally {
+        leaving.value = false
+      }
+    },
+  })
+}
+
+async function onReply() {
+  if (!activity.value || replying.value || !activity.value.canReply) {
+    return
+  }
+  replying.value = true
+  try {
+    activity.value = await replyActivity(activity.value.id, replyNote.value.trim())
+    replyNote.value = ''
+    uni.showToast({ title: '已确认', icon: 'success' })
+  } catch (error) {
+    uni.showToast({ title: error instanceof Error ? error.message : '确认失败', icon: 'none' })
+  } finally {
+    replying.value = false
+  }
 }
 
 function startEdit() {
@@ -532,6 +646,17 @@ function requestCancelSubscribe() {
   }
   uni.requestSubscribeMessage({
     tmplIds: [CANCEL_TEMPLATE_ID],
+    fail: () => {},
+  })
+}
+
+/** 发起人授权「退出社团通知」后，才有人退出时能收到服务通知。 */
+function requestOwnerLeaveSubscribe(current: Activity) {
+  if (!LEAVE_TEMPLATE_ID || !current.owner) {
+    return
+  }
+  uni.requestSubscribeMessage({
+    tmplIds: [LEAVE_TEMPLATE_ID],
     fail: () => {},
   })
 }
@@ -1072,5 +1197,34 @@ onShareAppMessage(() => ({
   background: #fff;
   color: #b0654a;
   border: 1px solid #e7cfc6;
+}
+
+.member-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.member-save {
+  flex: 1;
+}
+
+.leave-action {
+  flex: 1;
+  height: 42px;
+  line-height: 42px;
+  margin: 0;
+  padding: 0;
+  border-radius: 12px;
+  background: #fff;
+  color: #b0654a;
+  border: 1px solid #e7cfc6;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.leave-action::after {
+  border: none;
 }
 </style>

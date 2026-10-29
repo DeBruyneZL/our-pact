@@ -51,6 +51,16 @@ public interface ActivityService {
     ActivityResponse join(String shareCode, ActivityJoinRequest request);
 
     /**
+     * 已参加的人修改自己这边的人数。发起人改活动人数，参与人改参与记录。
+     */
+    ActivityResponse updatePeople(Long id, ActivityJoinRequest request);
+
+    /**
+     * 参与人退出活动，并移除自己加的菜；退出后推送发起人。
+     */
+    ActivityResponse leave(Long id);
+
+    /**
      * 发起人在答复前修改名称、时间和地点。
      */
     ActivityResponse update(Long id, ActivityUpdateRequest request);
