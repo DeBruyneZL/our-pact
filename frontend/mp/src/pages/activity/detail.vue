@@ -52,11 +52,14 @@
         />
         <input v-model="editName" class="field" placeholder="活动名称" />
         <input v-model="editLocation" class="field" placeholder="地点" />
-        <button class="primary" :disabled="saving" @tap="onSave">保存修改</button>
+        <button class="text-action" :disabled="saving" @tap="onSave">保存修改</button>
       </view>
 
       <view class="card">
-        <text class="section">菜品</text>
+        <view class="section-head">
+          <text class="section">菜品</text>
+          <button v-if="canAddDish" class="text-action section-action" @tap="goAddDish">＋ 添加菜品</button>
+        </view>
         <view v-if="emptyDishText" class="meta">{{ emptyDishText }}</view>
         <view v-for="row in sharedCards" :key="'s-' + row.id" class="dish">
           <image
@@ -97,11 +100,13 @@
             <text v-if="row.canRemove && row.myItemId" class="remove" @tap="onRemove(row.myItemId)">移除</text>
           </view>
         </view>
-        <button v-if="canAddDish" class="primary" @tap="goAddDish">去加菜</button>
       </view>
 
       <view v-if="showEatFirst" class="card">
-        <text class="section">手机先吃</text>
+        <view class="section-head">
+          <text class="section">手机先吃</text>
+          <button v-if="activity.canUpload" class="text-action section-action" @tap="onUpload">上传照片</button>
+        </view>
         <view v-if="activity.photos.length" class="photos">
           <image
             v-for="photo in activity.photos"
@@ -115,7 +120,6 @@
         <view v-else class="empty-photo">
           <text class="meta">还没有照片，先上传一张吧</text>
         </view>
-        <button v-if="activity.canUpload" class="primary" @tap="onUpload">上传照片</button>
       </view>
 
       <view v-if="activity.canWithdraw || activity.canComplete" class="actions">
@@ -159,7 +163,7 @@ import {
 import BrandNav from '@/components/BrandNav.vue'
 import DateTimeField from '@/components/DateTimeField.vue'
 import PageLoading from '@/components/PageLoading.vue'
-import { absoluteUrl } from '@/config'
+import { absoluteUrl, CANCEL_TEMPLATE_ID } from '@/config'
 import { useAuthStore } from '@/stores/auth'
 import {
   PEOPLE_OPTIONS,
@@ -491,12 +495,24 @@ async function onJoin() {
   if (!activity.value) {
     return
   }
+  requestCancelSubscribe()
   try {
     activity.value = await joinActivity(activity.value.shareCode, peopleCountOf(joinIndex.value))
     uni.showToast({ title: '已确认参加', icon: 'success' })
   } catch (error) {
     uni.showToast({ title: error instanceof Error ? error.message : '加入失败', icon: 'none' })
   }
+}
+
+/** 参加时请求「活动撤回」订阅授权。用户允许后，活动被撤回时才能收到微信服务通知。 */
+function requestCancelSubscribe() {
+  if (!CANCEL_TEMPLATE_ID) {
+    return
+  }
+  uni.requestSubscribeMessage({
+    tmplIds: [CANCEL_TEMPLATE_ID],
+    fail: () => {},
+  })
 }
 
 function onWithdraw() {
@@ -668,6 +684,17 @@ onShareAppMessage(() => ({
 .section {
   display: block;
   margin-bottom: 10px;
+}
+
+.section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 36px;
+}
+
+.section-head .section {
+  margin-bottom: 0;
 }
 
 .status,
@@ -903,8 +930,13 @@ onShareAppMessage(() => ({
 
 .actions {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
+  align-items: center;
+  gap: 10px;
+}
+
+.actions .primary {
+  flex: 1;
+  margin: 0;
 }
 
 .primary,
@@ -912,12 +944,42 @@ onShareAppMessage(() => ({
 .danger {
   border-radius: 999px;
   font-size: 14px;
-  margin: 8px 0 0;
+}
+
+.primary::after,
+.text-action::after,
+.danger::after {
+  border: none;
 }
 
 .primary {
+  height: 44px;
+  line-height: 44px;
+  border-radius: 12px;
   background: #5b8f7a;
   color: #fff;
+  font-size: 15px;
+  margin: 12px 0 0;
+}
+
+/* 卡片内操作仅保留文字，不再形成横向色块。 */
+.text-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: auto;
+  min-height: 44px;
+  line-height: 1;
+  padding: 0 4px;
+  background: transparent;
+  color: #3d6f5c;
+  font-size: 13px;
+  font-weight: 600;
+  margin: 4px 0 0 auto;
+}
+
+.section-action {
+  margin: -4px -4px -4px 0;
 }
 
 .ghost {
@@ -937,8 +999,13 @@ onShareAppMessage(() => ({
 }
 
 .danger {
+  flex-shrink: 0;
+  height: 44px;
+  line-height: 44px;
+  padding: 0 20px;
   background: #fff;
   color: #b0654a;
   border: 1px solid #e7cfc6;
+  margin: 0;
 }
 </style>

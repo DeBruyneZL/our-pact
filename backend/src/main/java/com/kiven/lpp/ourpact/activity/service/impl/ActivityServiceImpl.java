@@ -30,6 +30,7 @@ import com.kiven.lpp.ourpact.activity.mapper.ActivityMapper;
 import com.kiven.lpp.ourpact.activity.mapper.ActivityNoticeMapper;
 import com.kiven.lpp.ourpact.activity.mapper.ActivityParticipantMapper;
 import com.kiven.lpp.ourpact.activity.mapper.ActivityPhotoMapper;
+import com.kiven.lpp.ourpact.activity.service.ActivityCancelNotifier;
 import com.kiven.lpp.ourpact.activity.service.ActivityItemOptionService;
 import com.kiven.lpp.ourpact.activity.service.ActivityItemService;
 import com.kiven.lpp.ourpact.activity.service.ActivityPhotoStorage;
@@ -48,9 +49,12 @@ import com.kiven.lpp.ourpact.menu.service.DishImageStorage;
 import com.kiven.lpp.ourpact.user.entity.User;
 import com.kiven.lpp.ourpact.user.mapper.UserMapper;
 import com.kiven.lpp.ourpact.user.service.AvatarStorage;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.security.SecureRandom;
@@ -72,6 +76,7 @@ import java.util.stream.Collectors;
  *
  * @author zhangliang
  */
+@Slf4j
 @Service
 public class ActivityServiceImpl implements ActivityService {
 
@@ -111,6 +116,8 @@ public class ActivityServiceImpl implements ActivityService {
 
     private final AvatarStorage avatarStorage;
 
+    private final ActivityCancelNotifier cancelNotifier;
+
     private final SecureRandom random = new SecureRandom();
 
     public ActivityServiceImpl(ActivityMapper activityMapper,
@@ -126,7 +133,8 @@ public class ActivityServiceImpl implements ActivityService {
                                DishOptionGroupMapper dishOptionGroupMapper,
                                DishOptionValueMapper dishOptionValueMapper,
                                DishImageStorage dishImageStorage,
-                               AvatarStorage avatarStorage) {
+                               AvatarStorage avatarStorage,
+                               ActivityCancelNotifier cancelNotifier) {
         this.activityMapper = activityMapper;
         this.participantMapper = participantMapper;
         this.noticeMapper = noticeMapper;
@@ -141,6 +149,7 @@ public class ActivityServiceImpl implements ActivityService {
         this.dishOptionValueMapper = dishOptionValueMapper;
         this.dishImageStorage = dishImageStorage;
         this.avatarStorage = avatarStorage;
+        this.cancelNotifier = cancelNotifier;
     }
 
     @Override
@@ -307,12 +316,26 @@ public class ActivityServiceImpl implements ActivityService {
             throw new BusinessException("已完成的活动不能撤回");
         }
         User user = userMapper.selectById(userId);
+        String initiatorName = displayName(user);
         ActivityNotice notice = new ActivityNotice();
         notice.setActivityId(id);
         notice.setType(ActivityNoticeType.WITHDRAWN.getValue());
-        notice.setMessage(displayName(user) + "撤回了活动「" + activity.getName() + "」");
+        notice.setMessage(initiatorName + "撤回了活动「" + activity.getName() + "」");
         notice.setReadFlag(YesNo.NO.getValue());
         noticeMapper.insert(notice);
+        // 提交成功后再给参与人推微信订阅消息，失败不影响撤回
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    try {
+                        cancelNotifier.notifyWithdrawn(activity, initiatorName);
+                    } catch (Exception exception) {
+                        log.warn("撤回推送失败 activityId={}：{}", id, exception.getMessage());
+                    }
+                }
+            });
+        }
         return loadDetail(id, userId);
     }
 

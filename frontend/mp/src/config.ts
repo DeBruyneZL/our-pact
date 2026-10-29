@@ -5,6 +5,9 @@
  */
 export const API_BASE_URL = 'https://kivenlpp.cn/api'
 
+/** 「活动取消通知」订阅消息模板 id（模板编号 1104）。 */
+export const CANCEL_TEMPLATE_ID = 'px4ixul8SRHEkuCkC3bHmoS8o08waXztZsPrXf1A2KA'
+
 /** 后端返回的相对路径（/api/...）转成小程序可加载的绝对地址。 */
 export function absoluteUrl(path?: string | null): string {
   if (!path) {

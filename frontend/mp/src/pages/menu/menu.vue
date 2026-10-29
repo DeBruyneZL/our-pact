@@ -132,6 +132,29 @@
         <text class="added-close" @tap="showAdded = false">继续加菜</text>
       </view>
     </view>
+
+    <view v-if="showDetail" class="mask" @tap="closeDetail">
+      <view class="sheet detail-sheet" @tap.stop>
+        <image
+          v-if="detailView.showCover"
+          class="detail-cover"
+          :src="detailView.coverSrc"
+          mode="aspectFill"
+          @tap="previewDetail"
+        />
+        <view v-else class="detail-cover detail-cover-empty">暂无图片</view>
+        <text class="sheet-title detail-title">{{ detailView.title }}</text>
+        <text class="detail-desc">{{ detailView.extra }}</text>
+        <view v-for="line in detailView.options" :key="line.id" class="detail-option">
+          <text class="detail-option-name">{{ line.title }}</text>
+          <text class="detail-option-value">{{ line.extra }}</text>
+        </view>
+        <button class="cart-btn detail-action" :disabled="detailView.actionOff" @tap="onDetailAction">
+          {{ detailView.actionText }}
+        </button>
+        <text class="added-close" @tap="closeDetail">关闭</text>
+      </view>
+    </view>
   </view>
 </template>
 
@@ -173,6 +196,7 @@ const loading = ref(false)
 const loadError = ref('')
 const showList = ref(false)
 const showAdded = ref(false)
+const detailId = ref(0)
 /** 清单弹层是否进入「发起活动」表单。 */
 const createMode = ref(false)
 const submitting = ref(false)
@@ -289,6 +313,35 @@ const catCards = computed(() =>
   })),
 )
 
+const showDetail = computed(() => detailId.value > 0)
+const detailView = computed(() => {
+  const dish = dishes.value.find((item) => item.id === detailId.value)
+  const coverSrc = dish?.imageUrl && !failedCovers[dish.id] ? absoluteUrl(dish.imageUrl) : ''
+  const pending = Boolean(pendingActivity.value)
+  const picked = Boolean(dish && selected[dish.id])
+  const locked = Boolean(dish && addedDishIds.value.includes(dish.id) && !dish.allowRepeat)
+  const options = (dish?.optionGroups || [])
+    .map((group) => ({
+      id: String(group.id),
+      title: group.name || '',
+      extra: (group.values || []).map((value) => value.label).filter(Boolean).join('、'),
+    }))
+    .filter((line) => line.title || line.extra)
+  let actionText = picked ? '取消选择' : '选上这道'
+  if (pending) {
+    actionText = locked ? '已经加过' : '加上这道'
+  }
+  return {
+    title: dish?.name || '',
+    extra: dish?.description || '家常味道',
+    coverSrc,
+    showCover: Boolean(coverSrc),
+    options,
+    actionText,
+    actionOff: !dish || (pending && locked) || addingDishId.value === detailId.value,
+  }
+})
+
 const dishCards = computed(() => {
   const pending = Boolean(pendingActivity.value)
   return filteredDishes.value.map((dish) => {
@@ -361,7 +414,28 @@ function onCoverError(dishId: number) {
 }
 
 function onDishTap(dishId: number) {
+  detailId.value = dishId
+}
+
+function closeDetail() {
+  detailId.value = 0
+}
+
+function previewDetail() {
+  const src = detailView.value.coverSrc
+  if (!src) {
+    return
+  }
+  uni.previewImage({ current: src, urls: [src] })
+}
+
+function onDetailAction() {
+  const dishId = detailId.value
+  if (!dishId || detailView.value.actionOff) {
+    return
+  }
   if (pendingActivity.value) {
+    void onPlus(dishId)
     return
   }
   if (selected[dishId]) {
@@ -515,8 +589,8 @@ function clearSelection() {
   updatePaneHeight()
 }
 
-watch([showList, showAdded], () => {
-  setTabBarHidden(showList.value || showAdded.value)
+watch([showList, showAdded, showDetail], () => {
+  setTabBarHidden(showList.value || showAdded.value || showDetail.value)
   updatePaneHeight()
 })
 
@@ -921,6 +995,69 @@ onShow(() => {
   color: #3d6f5c;
   font-size: 14px;
   font-weight: 700;
+}
+
+.detail-sheet {
+  padding-top: 0;
+  overflow: hidden;
+}
+
+.detail-cover {
+  width: calc(100% + 32px);
+  height: 248px;
+  margin-left: -16px;
+  background: #e8e2d8;
+  display: block;
+}
+
+.detail-cover-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #9a958c;
+  font-size: 14px;
+}
+
+.detail-title {
+  margin-top: 16px;
+  margin-bottom: 6px;
+}
+
+.detail-desc {
+  color: #5c5852;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.detail-option {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #f7f5f0;
+}
+
+.detail-option-name {
+  display: block;
+  font-size: 12px;
+  color: #8a8680;
+}
+
+.detail-option-value {
+  display: block;
+  margin-top: 2px;
+  font-size: 14px;
+  color: #2c2a26;
+}
+
+.detail-action {
+  width: 100%;
+  margin-top: 16px;
+  height: 44px;
+  line-height: 44px;
+}
+
+.detail-action::after {
+  border: none;
 }
 
 .cart-bar {
