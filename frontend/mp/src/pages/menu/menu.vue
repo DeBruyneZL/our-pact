@@ -22,7 +22,7 @@
         </view>
       </scroll-view>
 
-      <scroll-view scroll-y class="dish-pane" :style="paneStyle">
+      <scroll-view scroll-y :class="dishPaneSkin" :style="paneStyle">
         <view v-if="emptyPaneText" class="center small">{{ emptyPaneText }}</view>
         <view
           v-for="card in dishCards"
@@ -57,6 +57,15 @@
         </view>
       </scroll-view>
     </view>
+    </view>
+
+    <view v-if="showAddedFab" class="added-fab" :style="cartBarStyle" @tap="showAdded = true">
+      <view class="fab-lines">
+        <view class="fab-line" />
+        <view class="fab-line" />
+        <view class="fab-line short" />
+      </view>
+      <view v-if="addedBadge" class="fab-badge">{{ addedBadge }}</view>
     </view>
 
     <view v-if="cartText && !showList" class="cart-bar" :style="cartBarStyle">
@@ -101,13 +110,35 @@
         <button class="text-btn" @tap="showList = false">继续挑</button>
       </view>
     </view>
+
+    <view v-if="showAdded" class="mask" @tap="showAdded = false">
+      <view class="sheet added-sheet" @tap.stop>
+        <view class="added-head">
+          <text class="sheet-title">已经加入</text>
+          <text class="added-count">{{ addedSummary }}</text>
+        </view>
+        <scroll-view scroll-y class="sheet-list">
+          <view v-if="emptyAddedText" class="added-empty">{{ emptyAddedText }}</view>
+          <view v-for="line in addedLines" :key="line.id" class="added-row">
+            <image v-if="line.showCover" class="added-cover" :src="line.coverSrc" mode="aspectFill" />
+            <view v-else class="added-cover added-cover-empty">菜</view>
+            <view class="sheet-main">
+              <text class="sheet-name">{{ line.title }}</text>
+              <text class="sheet-note">{{ line.extra }}</text>
+            </view>
+            <text v-if="line.countText" class="added-times">{{ line.countText }}</text>
+          </view>
+        </scroll-view>
+        <text class="added-close" @tap="showAdded = false">继续加菜</text>
+      </view>
+    </view>
   </view>
 </template>
 
 <script setup lang="ts">
 import { onShow } from '@dcloudio/uni-app'
 import { computed, reactive, ref, watch } from 'vue'
-import type { Dish, DishCategory } from '@our-pact/shared'
+import type { ActivityItem, Dish, DishCategory } from '@our-pact/shared'
 import { addActivityItems, createActivity, getActivity } from '@/api/activity'
 import { listCategories, listDishes } from '@/api/menu'
 import BrandNav from '@/components/BrandNav.vue'
@@ -141,6 +172,7 @@ const activeCategoryId = ref(0)
 const loading = ref(false)
 const loadError = ref('')
 const showList = ref(false)
+const showAdded = ref(false)
 /** 清单弹层是否进入「发起活动」表单。 */
 const createMode = ref(false)
 const submitting = ref(false)
@@ -154,6 +186,7 @@ const peopleOptions = PEOPLE_OPTIONS
 const minDate = computed(() => todayText())
 const pendingActivity = ref<{ id: number; title: string } | null>(null)
 const addedDishIds = ref<number[]>([])
+const addedItems = ref<ActivityItem[]>([])
 const addingDishId = ref(0)
 const failedCovers = reactive<Record<number, boolean>>({})
 const selected = reactive<Record<number, boolean>>({})
@@ -182,6 +215,50 @@ const cartText = computed(() => {
     return ''
   }
   return `已选 ${selectedCount.value} 道`
+})
+const dishPaneSkin = computed(() => (addingBar.value ? 'dish-pane roomy' : 'dish-pane'))
+const showAddedFab = computed(() => Boolean(addingBar.value) && !showAdded.value && !showList.value)
+const addedBadge = computed(() => {
+  const total = addedItems.value.length
+  if (total <= 0) {
+    return ''
+  }
+  return total > 99 ? '99+' : String(total)
+})
+const addedSummary = computed(() => {
+  const total = addedItems.value.length
+  return total > 0 ? `共 ${total} 道` : '还没有菜'
+})
+const emptyAddedText = computed(() => (addedItems.value.length ? '' : '点右边的加号，菜会出现在这里'))
+const addedLines = computed(() => {
+  const me = auth.profile?.id
+  const groups = new Map<string, { title: string; extra: string; coverSrc: string; count: number }>()
+  for (const item of addedItems.value) {
+    const dishId = item.dishId == null ? 0 : item.dishId
+    const key = `${dishId}-${item.addedByUserId}`
+    const current = groups.get(key)
+    if (current) {
+      current.count += 1
+      continue
+    }
+    const menuDish = dishes.value.find((entry) => entry.id === dishId)
+    const cover = item.dishImageUrl || menuDish?.imageUrl || ''
+    const who = item.addedByUserId === me ? '你加的' : `${item.addedByUserName || '其他人'}加的`
+    groups.set(key, {
+      title: item.dishName || menuDish?.name || '未命名菜品',
+      extra: who,
+      coverSrc: cover ? absoluteUrl(cover) : '',
+      count: 1,
+    })
+  }
+  return [...groups.entries()].map(([id, line]) => ({
+    id,
+    title: line.title,
+    extra: line.extra,
+    coverSrc: line.coverSrc,
+    showCover: Boolean(line.coverSrc),
+    countText: line.count > 1 ? `×${line.count}` : '',
+  }))
 })
 const sheetTitle = computed(() => {
   if (addingBar.value) {
@@ -353,11 +430,19 @@ function storedTitle(value: { title?: unknown; name?: unknown }) {
   return ''
 }
 
+function rememberAdded(items: ActivityItem[]) {
+  addedItems.value = items
+  addedDishIds.value = items
+    .map((item) => item.dishId)
+    .filter((dishId): dishId is number => dishId != null)
+}
+
 function readPending() {
   const value = uni.getStorageSync(PENDING_KEY) as { id?: number; title?: string; name?: string } | ''
   if (!value || typeof value !== 'object' || !value.id) {
     pendingActivity.value = null
-    addedDishIds.value = []
+    rememberAdded([])
+    showAdded.value = false
     return
   }
   pendingActivity.value = { id: Number(value.id), title: storedTitle(value) }
@@ -366,15 +451,13 @@ function readPending() {
 async function loadAdded() {
   const pending = pendingActivity.value
   if (!pending) {
-    addedDishIds.value = []
+    rememberAdded([])
     return
   }
   try {
     const activity = await getActivity(pending.id)
     pendingActivity.value = { id: pending.id, title: activity.name || pending.title }
-    addedDishIds.value = activity.items
-      .map((item) => item.dishId)
-      .filter((dishId): dishId is number => dishId != null)
+    rememberAdded(activity.items || [])
   } catch (error) {
     uni.showToast({ title: error instanceof Error ? error.message : '活动加载失败', icon: 'none' })
   }
@@ -393,9 +476,7 @@ async function onPlus(dishId: number) {
   try {
     await auth.ensureLogin()
     const activity = await addActivityItems(pendingActivity.value.id, [{ dishId }])
-    addedDishIds.value = activity.items
-      .map((item) => item.dishId)
-      .filter((id): id is number => id != null)
+    rememberAdded(activity.items || [])
     uni.showToast({ title: '已加上', icon: 'success' })
   } catch (error) {
     uni.showToast({ title: error instanceof Error ? error.message : '加菜失败', icon: 'none' })
@@ -416,6 +497,8 @@ function backToActivity() {
 function clearPending() {
   uni.removeStorageSync(PENDING_KEY)
   pendingActivity.value = null
+  rememberAdded([])
+  showAdded.value = false
   updatePaneHeight()
 }
 
@@ -432,8 +515,8 @@ function clearSelection() {
   updatePaneHeight()
 }
 
-watch(showList, (open) => {
-  setTabBarHidden(open)
+watch([showList, showAdded], () => {
+  setTabBarHidden(showList.value || showAdded.value)
   updatePaneHeight()
 })
 
@@ -598,6 +681,10 @@ onShow(() => {
   background: #f7f5f0;
 }
 
+.dish-pane.roomy {
+  padding-bottom: 88px;
+}
+
 .dish-card {
   position: relative;
   display: flex;
@@ -711,6 +798,129 @@ onShow(() => {
 
 .note-placeholder {
   color: #b3ada2;
+}
+
+.added-fab {
+  position: fixed;
+  right: 16px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: #2c2a26;
+  box-shadow: 0 10px 24px rgba(44, 42, 38, 0.28);
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.fab-lines {
+  width: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.fab-line {
+  height: 2px;
+  border-radius: 2px;
+  background: #fffcf7;
+}
+
+.fab-line.short {
+  width: 12px;
+}
+
+.fab-badge {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  box-sizing: border-box;
+  border-radius: 999px;
+  background: #5b8f7a;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 20px;
+  text-align: center;
+  border: 2px solid #f7f5f0;
+}
+
+.added-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.added-head .sheet-title {
+  margin-bottom: 0;
+}
+
+.added-count {
+  color: #8a8680;
+  font-size: 13px;
+}
+
+.added-sheet .sheet-list {
+  margin-top: 14px;
+}
+
+.added-empty {
+  padding: 36px 12px;
+  text-align: center;
+  color: #8a8680;
+  font-size: 13px;
+}
+
+.added-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid #efeae2;
+}
+
+.added-cover {
+  width: 52px;
+  height: 52px;
+  border-radius: 12px;
+  background: #e8e2d8;
+  flex-shrink: 0;
+}
+
+.added-cover-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #9a958c;
+  font-size: 13px;
+}
+
+.added-times {
+  flex-shrink: 0;
+  min-width: 36px;
+  height: 28px;
+  padding: 0 8px;
+  box-sizing: border-box;
+  border-radius: 999px;
+  background: #e6f0eb;
+  color: #3d6f5c;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 28px;
+  text-align: center;
+}
+
+.added-close {
+  margin-top: 14px;
+  text-align: center;
+  color: #3d6f5c;
+  font-size: 14px;
+  font-weight: 700;
 }
 
 .cart-bar {
