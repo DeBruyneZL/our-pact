@@ -6,21 +6,23 @@
     <view v-else-if="errorMessage" class="error">{{ errorMessage }}</view>
 
     <template v-else-if="hasProfile">
-      <template v-if="editing">
-        <view class="hero">
+      <view class="sheet">
+        <view v-if="editing" class="hero">
           <text class="hero-title">完善头像和昵称</text>
           <text class="hint">点下方区域，一次选好微信头像和昵称</text>
 
           <!-- 头像选择与昵称填写放同一授权区，点保存时一并提交 -->
           <view class="auth-block">
             <button class="avatar-btn" open-type="chooseAvatar" @chooseavatar="onChooseAvatar">
-              <image
-                v-if="previewAvatar"
-                class="avatar"
-                :src="previewAvatar"
-                mode="aspectFill"
-              />
-              <view v-else class="avatar avatar-fallback">{{ initial }}</view>
+              <view class="avatar-ring">
+                <image
+                  v-if="previewAvatar"
+                  class="avatar"
+                  :src="previewAvatar"
+                  mode="aspectFill"
+                />
+                <view v-else class="avatar avatar-fallback">{{ initial }}</view>
+              </view>
               <text class="avatar-tip">选头像</text>
             </button>
             <input
@@ -37,20 +39,36 @@
           </view>
         </view>
 
+        <view v-else class="hero">
+          <view class="avatar-ring">
+            <image
+              v-if="hasAvatar"
+              class="avatar"
+              :src="avatarSrc"
+              mode="aspectFill"
+            />
+            <view v-else class="avatar avatar-fallback">{{ initial }}</view>
+          </view>
+          <text class="nickname">{{ viewName }}</text>
+          <text v-if="needProfile" class="hint">还差头像或昵称，点下面一次完善</text>
+        </view>
+
         <view class="stats">
-          <view class="stat-card">
+          <view class="stat">
             <text class="stat-num">{{ activityCount }}</text>
             <text class="stat-label">参加活动</text>
           </view>
-          <view class="stat-card">
+          <view class="stat-split" />
+          <view class="stat">
             <text class="stat-num">{{ dishCount }}</text>
             <text class="stat-label">点过的菜</text>
           </view>
         </view>
 
-        <view class="panel">
+        <view class="phone-row">
           <text class="cell-label">手机号</text>
           <input
+            v-if="editing"
             v-model="phoneInput"
             class="cell-input"
             type="number"
@@ -58,45 +76,15 @@
             placeholder="选填"
             placeholder-class="cell-placeholder"
           />
+          <text v-else :class="phoneInput ? 'cell-value' : 'cell-value is-empty'">{{ phoneText }}</text>
         </view>
+      </view>
 
-        <button class="edit-btn" :disabled="saving" @tap="onSaveAll">保存</button>
-        <button class="text-btn" :disabled="saving" @tap="onCancelEdit">取消</button>
-      </template>
-
-      <template v-else>
-        <view class="hero">
-          <image
-            v-if="hasAvatar"
-            class="avatar"
-            :src="avatarSrc"
-            mode="aspectFill"
-          />
-          <view v-else class="avatar avatar-fallback">{{ initial }}</view>
-          <text class="nickname">{{ viewName }}</text>
-          <text v-if="needProfile" class="hint">还差头像或昵称，点下面一次完善</text>
-        </view>
-
-        <view class="stats">
-          <view class="stat-card">
-            <text class="stat-num">{{ activityCount }}</text>
-            <text class="stat-label">参加活动</text>
-          </view>
-          <view class="stat-card">
-            <text class="stat-num">{{ dishCount }}</text>
-            <text class="stat-label">点过的菜</text>
-          </view>
-        </view>
-
-        <view class="panel">
-          <text class="cell-label">手机号</text>
-          <text class="cell-value">{{ phoneText }}</text>
-        </view>
-
-        <button class="edit-btn" @tap="startEdit">
-          {{ needProfile ? '完善头像和昵称' : '编辑资料' }}
-        </button>
-      </template>
+      <button v-if="editing" class="edit-btn" :disabled="saving" @tap="onSaveAll">保存</button>
+      <button v-if="editing" class="text-btn" :disabled="saving" @tap="onCancelEdit">取消</button>
+      <button v-else class="edit-btn" @tap="startEdit">
+        {{ needProfile ? '完善头像和昵称' : '编辑资料' }}
+      </button>
     </template>
     </view>
   </view>
@@ -295,7 +283,7 @@ onShow(() => {
 }
 
 .body {
-  padding: 24px 16px calc(24px + 56px + env(safe-area-inset-bottom));
+  padding: 16px 16px calc(20px + 56px + env(safe-area-inset-bottom));
 }
 
 .error {
@@ -305,14 +293,18 @@ onShow(() => {
   font-size: 14px;
 }
 
+.sheet {
+  overflow: hidden;
+  border-radius: 24px;
+  background: linear-gradient(180deg, #e5f2ea 0%, #fffcf7 168px);
+  box-shadow: 0 12px 32px rgba(61, 111, 92, 0.08);
+}
+
 .hero {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 28px 16px 22px;
-  border-radius: 20px;
-  border: 1px solid #e5e1d8;
-  background: linear-gradient(145deg, #e6f0eb, #fffcf7 60%);
+  padding: 28px 20px 8px;
 }
 
 .hero-title {
@@ -328,10 +320,9 @@ onShow(() => {
   flex-direction: column;
   align-items: center;
   gap: 12px;
-  padding: 18px 16px;
-  border-radius: 16px;
-  background: rgba(255, 252, 247, 0.9);
-  border: 1px dashed #c5d6cc;
+  padding: 16px;
+  border-radius: 18px;
+  background: rgba(255, 252, 247, 0.82);
   box-sizing: border-box;
 }
 
@@ -351,9 +342,19 @@ onShow(() => {
   border: none;
 }
 
+.avatar-ring {
+  width: 96px;
+  height: 96px;
+  padding: 4px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 8px 18px rgba(61, 111, 92, 0.16);
+  box-sizing: border-box;
+}
+
 .avatar {
-  width: 84px;
-  height: 84px;
+  width: 100%;
+  height: 100%;
   border-radius: 50%;
   background: #dce9e1;
 }
@@ -364,7 +365,7 @@ onShow(() => {
   justify-content: center;
   color: #3d6f5c;
   font-size: 28px;
-  font-weight: 650;
+  font-weight: 600;
 }
 
 .avatar-tip {
@@ -380,49 +381,65 @@ onShow(() => {
 }
 
 .nickname {
-  margin-top: 10px;
-  font-size: 20px;
+  margin-top: 14px;
+  font-size: 22px;
   font-weight: 700;
   color: #2c2a26;
+  line-height: 1.3;
 }
 
 .stats {
-  margin-top: 16px;
   display: flex;
-  gap: 12px;
+  align-items: stretch;
+  margin: 18px 18px 0;
+  padding: 16px 0 14px;
+  border-top: 1px solid rgba(44, 42, 38, 0.08);
 }
 
-.stat-card {
+.stat {
   flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 18px 12px;
-  border-radius: 16px;
-  border: 1px solid #e5e1d8;
-  background: #fffcf7;
+}
+
+.stat-split {
+  width: 1px;
+  margin: 4px 0;
+  background: #ece7df;
 }
 
 .stat-num {
-  font-size: 28px;
+  font-size: 30px;
   font-weight: 800;
   color: #3d6f5c;
   line-height: 1;
 }
 
 .stat-label {
-  font-size: 13px;
-  color: #5c5852;
+  font-size: 12px;
+  color: #8a8680;
 }
 
 .edit-btn {
-  margin-top: 16px;
-  background: #5b8f7a;
+  width: 100%;
+  margin-top: 20px;
+  height: 48px;
+  line-height: 48px;
+  background: #4f866f;
   color: #fff;
   border-radius: 999px;
-  font-size: 15px;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  box-shadow: 0 8px 18px rgba(79, 134, 111, 0.28);
+}
+
+.edit-btn::after,
+.text-btn::after {
+  border: none;
 }
 
 .edit-btn[disabled] {
@@ -430,10 +447,11 @@ onShow(() => {
 }
 
 .text-btn {
-  margin-top: 8px;
+  margin-top: 2px;
   background: transparent;
-  color: #5c5852;
+  color: #8a8680;
   font-size: 14px;
+  line-height: 40px;
 }
 
 .name-input {
@@ -455,19 +473,17 @@ onShow(() => {
   font-size: 15px;
 }
 
-.panel {
-  margin-top: 16px;
-  padding: 4px 16px;
-  border-radius: 16px;
-  border: 1px solid #e5e1d8;
-  background: #fffcf7;
+.phone-row {
   display: flex;
   align-items: center;
   gap: 12px;
+  margin: 0 18px 8px;
+  padding: 0 2px;
+  border-top: 1px solid rgba(44, 42, 38, 0.08);
 }
 
 .cell-label {
-  color: #5c5852;
+  color: #8a8680;
   font-size: 14px;
   flex-shrink: 0;
 }
@@ -488,7 +504,15 @@ onShow(() => {
   height: 48px;
   line-height: 48px;
   text-align: right;
-  font-size: 15px;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
   color: #2c2a26;
+}
+
+.cell-value.is-empty {
+  color: #b3ada2;
+  font-weight: 400;
+  letter-spacing: 0;
 }
 </style>
