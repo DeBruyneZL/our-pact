@@ -33,6 +33,8 @@
           <text class="meta">{{ row.summary }}</text>
           <text v-if="row.showConfirm" class="confirm-hint">点进去可直接确认</text>
         </view>
+        <view v-if="loadingMore" class="more">加载中</view>
+        <view v-else-if="noMore" class="more">没有更多了</view>
       </template>
     </view>
 
@@ -59,7 +61,7 @@
 </template>
 
 <script setup lang="ts">
-import { onShow } from '@dcloudio/uni-app'
+import { onReachBottom, onShow } from '@dcloudio/uni-app'
 import { computed, ref } from 'vue'
 import { activityStatusLabel, type Activity, type ActivityStatus } from '@our-pact/shared'
 import { createActivity, pageManageActivities, pageMyActivities } from '@/api/activity'
@@ -84,7 +86,13 @@ const auth = useAuthStore()
 const activities = ref<Activity[]>([])
 const pendingCount = ref(0)
 const listMode = ref<ListMode>('mine')
+const PAGE_SIZE = 10
+
 const loading = ref(false)
+const loadingMore = ref(false)
+const pageNum = ref(1)
+const total = ref(0)
+const reachedEnd = ref(false)
 const errorMessage = ref('')
 const showCreate = ref(false)
 const submitting = ref(false)
@@ -114,10 +122,9 @@ const statusText = computed(() => {
   return ''
 })
 
-const countText = computed(() => {
-  const total = activities.value.length
-  return total > 0 ? `${total} 个` : ''
-})
+const countText = computed(() => (total.value > 0 ? `${total.value} 个` : ''))
+
+const noMore = computed(() => reachedEnd.value && activities.value.length > PAGE_SIZE)
 
 const pendingBadge = computed(() => {
   if (pendingCount.value <= 0) {
@@ -189,36 +196,104 @@ function switchMode(mode: ListMode) {
   void load()
 }
 
+let loadSeq = 0
+
+function rowsOf(page: { list?: Activity[]; total?: number } | null) {
+  return {
+    list: Array.isArray(page?.list) ? page.list : [],
+    total: Number(page?.total ?? 0),
+  }
+}
+
+function currentPage(page: number) {
+  if (listMode.value === 'pending') {
+    return pageManageActivities(page, PAGE_SIZE, 'open')
+  }
+  return pageMyActivities(page, PAGE_SIZE)
+}
+
 async function load() {
+  const seq = ++loadSeq
   loading.value = true
   errorMessage.value = ''
+  pageNum.value = 1
+  reachedEnd.value = false
   try {
     await auth.ensureLogin()
     await auth.loadProfile()
+    if (seq !== loadSeq) {
+      return
+    }
     if (!auth.isSuperAdmin && listMode.value === 'pending') {
       listMode.value = 'mine'
     }
     if (auth.isSuperAdmin) {
       requestAdminCreateSubscribe()
-      const pending = await pageManageActivities('open')
-      const pendingList = Array.isArray(pending?.list) ? pending.list : []
-      pendingCount.value = pendingList.length
-      if (listMode.value === 'pending') {
-        activities.value = pendingList
-      } else {
-        const mine = await pageMyActivities()
-        activities.value = Array.isArray(mine?.list) ? mine.list : []
-      }
-    } else {
+    }
+    const page = rowsOf(await currentPage(1))
+    if (seq !== loadSeq) {
+      return
+    }
+    activities.value = page.list
+    total.value = page.total
+    reachedEnd.value = page.list.length >= page.total
+    if (!auth.isSuperAdmin) {
       pendingCount.value = 0
-      const mine = await pageMyActivities()
-      activities.value = Array.isArray(mine?.list) ? mine.list : []
+    } else if (listMode.value === 'pending') {
+      pendingCount.value = page.total
+    } else {
+      const pending = rowsOf(await pageManageActivities(1, 1, 'open'))
+      if (seq !== loadSeq) {
+        return
+      }
+      pendingCount.value = pending.total
     }
   } catch (error) {
+    if (seq !== loadSeq) {
+      return
+    }
     activities.value = []
+    total.value = 0
+    reachedEnd.value = true
     errorMessage.value = error instanceof Error ? error.message : '加载失败'
   } finally {
-    loading.value = false
+    if (seq === loadSeq) {
+      loading.value = false
+    }
+  }
+}
+
+async function loadMore() {
+  if (loading.value || loadingMore.value || reachedEnd.value || activities.value.length >= total.value) {
+    return
+  }
+  const seq = loadSeq
+  loadingMore.value = true
+  try {
+    const next = pageNum.value + 1
+    const page = rowsOf(await currentPage(next))
+    if (seq !== loadSeq) {
+      return
+    }
+    const seen = new Set(activities.value.map((item) => item.id))
+    const fresh = page.list.filter((item) => !seen.has(item.id))
+    if (fresh.length === 0) {
+      reachedEnd.value = true
+      return
+    }
+    activities.value = activities.value.concat(fresh)
+    total.value = page.total
+    pageNum.value = next
+    reachedEnd.value = activities.value.length >= total.value
+  } catch (error) {
+    if (seq !== loadSeq) {
+      return
+    }
+    uni.showToast({ title: error instanceof Error ? error.message : '加载失败', icon: 'none' })
+  } finally {
+    if (seq === loadSeq) {
+      loadingMore.value = false
+    }
   }
 }
 
@@ -291,6 +366,10 @@ onShow(() => {
     activityDate.value = todayText()
   }
   void load()
+})
+
+onReachBottom(() => {
+  void loadMore()
 })
 </script>
 
@@ -370,6 +449,13 @@ onShow(() => {
   text-align: center;
   color: #8a8680;
   font-size: 14px;
+}
+
+.more {
+  padding: 8px 0 16px;
+  text-align: center;
+  color: #8a8680;
+  font-size: 12px;
 }
 
 .placeholder {

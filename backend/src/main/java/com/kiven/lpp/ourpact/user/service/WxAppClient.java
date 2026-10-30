@@ -77,7 +77,7 @@ public class WxAppClient {
         }
         Object openid = body == null ? null : body.get("openid");
         if (openid == null) {
-            Object errmsg = body.get("errmsg");
+            Object errmsg = body == null ? null : body.get("errmsg");
             throw new BusinessException("微信登录失败：" + (errmsg == null ? "未返回 openid" : errmsg));
         }
         return String.valueOf(openid);
@@ -90,30 +90,36 @@ public class WxAppClient {
      */
     public String getAccessToken() {
         requireAppConfigured();
-        long now = System.currentTimeMillis();
         String token = cachedToken;
-        if (token != null && now < cachedTokenExpiresAt) {
+        if (token != null && System.currentTimeMillis() < cachedTokenExpiresAt) {
             return token;
         }
-        String raw = restClient.get()
-                .uri(TOKEN_URL + "?grant_type=client_credential&appid={appId}&secret={secret}", appId, appSecret)
-                .retrieve()
-                .body(String.class);
-        Map<?, ?> body;
-        try {
-            body = objectMapper.readValue(raw, Map.class);
-        } catch (JsonProcessingException exception) {
-            throw new BusinessException("获取微信接口凭据失败：响应解析异常");
+        synchronized (this) {
+            token = cachedToken;
+            long now = System.currentTimeMillis();
+            if (token != null && now < cachedTokenExpiresAt) {
+                return token;
+            }
+            String raw = restClient.get()
+                    .uri(TOKEN_URL + "?grant_type=client_credential&appid={appId}&secret={secret}", appId, appSecret)
+                    .retrieve()
+                    .body(String.class);
+            Map<?, ?> body;
+            try {
+                body = objectMapper.readValue(raw, Map.class);
+            } catch (JsonProcessingException exception) {
+                throw new BusinessException("获取微信接口凭据失败：响应解析异常");
+            }
+            Object value = body == null ? null : body.get("access_token");
+            if (value == null) {
+                throw new BusinessException("获取微信接口凭据失败：" + errorText(body));
+            }
+            Object expiresIn = body.get("expires_in");
+            long seconds = expiresIn instanceof Number ? ((Number) expiresIn).longValue() : 7200;
+            cachedToken = String.valueOf(value);
+            cachedTokenExpiresAt = now + Math.max(60, seconds - 300) * 1000;
+            return cachedToken;
         }
-        Object value = body == null ? null : body.get("access_token");
-        if (value == null) {
-            throw new BusinessException("获取微信接口凭据失败：" + errorText(body));
-        }
-        Object expiresIn = body.get("expires_in");
-        long seconds = expiresIn instanceof Number ? ((Number) expiresIn).longValue() : 7200;
-        cachedToken = String.valueOf(value);
-        cachedTokenExpiresAt = now + Math.max(60, seconds - 300) * 1000;
-        return cachedToken;
     }
 
     /**
@@ -143,6 +149,13 @@ public class WxAppClient {
         } catch (JsonProcessingException exception) {
             throw new BusinessException("订阅消息发送失败：请求组装异常");
         }
+        return postSubscribe(body, false);
+    }
+
+    /**
+     * 凭据失效时清缓存并重试一次。微信重复获取会使上一次的 access_token 作废。
+     */
+    private boolean postSubscribe(String body, boolean retried) {
         String raw = restClient.post()
                 .uri(SUBSCRIBE_SEND_URL + "?access_token={token}", getAccessToken())
                 .contentType(MediaType.APPLICATION_JSON)
@@ -163,9 +176,10 @@ public class WxAppClient {
         if (code == ERRCODE_NOT_SUBSCRIBED) {
             return false;
         }
-        if (code == ERRCODE_TOKEN_INVALID || code == ERRCODE_TOKEN_EXPIRED) {
-            // 凭据失效，清缓存后下次重新获取
+        if (!retried && (code == ERRCODE_TOKEN_INVALID || code == ERRCODE_TOKEN_EXPIRED)) {
             cachedToken = null;
+            cachedTokenExpiresAt = 0;
+            return postSubscribe(body, true);
         }
         throw new BusinessException("订阅消息发送失败：" + errorText(result));
     }

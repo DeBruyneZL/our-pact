@@ -24,10 +24,6 @@ function nowIso() {
   return new Date().toISOString()
 }
 
-function shareCode() {
-  return Math.random().toString(36).slice(2, 8).toUpperCase()
-}
-
 function seed(): MockDb {
   const categories: DishCategory[] = [
     { id: 1, name: '热菜', sortOrder: 1 },
@@ -533,15 +529,6 @@ export const pactApi = {
     return delay(activity)
   },
 
-  getActivityByShareCode: async (code: string) => {
-    const trimmed = code.trim().toUpperCase()
-    const activity = load().activities.find((item) => item.shareCode === trimmed)
-    if (!activity) {
-      throw new Error('分享码无效')
-    }
-    return delay(activity)
-  },
-
   createActivity: async (payload: {
     userId: number
     scheduledAt: string
@@ -562,7 +549,6 @@ export const pactApi = {
     const activity: Activity = {
       id: allocId(db),
       name: '约饭',
-      shareCode: shareCode(),
       userId: user.id,
       userName: user.name,
       scheduledAt: new Date(payload.scheduledAt).toISOString(),
@@ -585,17 +571,16 @@ export const pactApi = {
     return delay(activity)
   },
 
-  /** 通过分享码加入活动（仅参与，不改他人内容） */
-  joinActivity: async (shareCodeInput: string, userId: number) => {
+  /** 加入活动（仅参与，不改他人内容） */
+  joinActivity: async (activityId: number, userId: number) => {
     const db = load()
     const user = db.users.find((item) => item.id === userId)
     if (!user) {
       throw new Error('请先创建账号名')
     }
-    const code = shareCodeInput.trim().toUpperCase()
-    const index = db.activities.findIndex((item) => item.shareCode === code)
+    const index = db.activities.findIndex((item) => item.id === activityId)
     if (index < 0) {
-      throw new Error('分享码无效')
+      throw new Error('活动不存在')
     }
     const activity = db.activities[index]
     if (activity.status === 'withdrawn') {
@@ -633,7 +618,7 @@ export const pactApi = {
       throw new Error(activity.status === 'replied' ? '已答复，不能再修改活动' : '当前状态不可加菜')
     }
     if (!isMember(activity, userId)) {
-      throw new Error('请先通过分享码加入活动')
+      throw new Error('请先加入活动')
     }
 
     const nextItems = [...activity.items, ...buildItems(db, user, items)]

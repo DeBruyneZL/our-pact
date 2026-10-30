@@ -101,7 +101,6 @@ export interface ActivityParticipant {
 export interface Activity {
   id: number
   name: string
-  shareCode: string
   userId: number
   userName: string
   scheduledAt: string

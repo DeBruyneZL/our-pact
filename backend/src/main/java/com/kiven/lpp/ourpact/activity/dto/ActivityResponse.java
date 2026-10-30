@@ -17,8 +17,6 @@ public class ActivityResponse {
 
     private String name;
 
-    private String shareCode;
-
     private Long userId;
 
     private String userName;

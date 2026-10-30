@@ -24,7 +24,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.util.List;
 
 /**
- * 活动接口。登录用户可发起和加菜，答复与通知只给超级管理员。
+ * 活动接口。登录用户可发起、查看和加菜，答复与通知只给超级管理员。
  *
  * @author zhangliang
  */
@@ -64,14 +64,9 @@ public class ActivityController {
         return Result.success();
     }
 
-    @GetMapping("/code/{shareCode}")
-    public Result<ActivityResponse> detailByCode(@PathVariable String shareCode) {
-        return Result.success(activityService.detailByCode(shareCode));
-    }
-
-    @PostMapping("/code/{shareCode}/join")
-    public Result<ActivityResponse> join(@PathVariable String shareCode, @Valid @RequestBody ActivityJoinRequest request) {
-        return Result.success(activityService.join(shareCode, request));
+    @PostMapping("/{id}/join")
+    public Result<ActivityResponse> join(@PathVariable Long id, @Valid @RequestBody ActivityJoinRequest request) {
+        return Result.success(activityService.join(id, request));
     }
 
     @PostMapping("/{id}/people")
@@ -122,6 +117,11 @@ public class ActivityController {
     @PostMapping("/{id}/photos")
     public Result<ActivityResponse> uploadPhoto(@PathVariable Long id, @RequestParam("file") MultipartFile file) {
         return Result.success(activityService.uploadPhoto(id, file));
+    }
+
+    @PostMapping("/{id}/photos/{photoId}/delete")
+    public Result<ActivityResponse> deletePhoto(@PathVariable Long id, @PathVariable Long photoId) {
+        return Result.success(activityService.deletePhoto(id, photoId));
     }
 
     @PostMapping("/{id}/delete")

@@ -144,14 +144,15 @@
           <button v-if="activity.canUpload" class="text-action section-action" @tap="onUpload">上传照片</button>
         </view>
         <view v-if="activity.photos.length" class="photos">
-          <image
-            v-for="photo in activity.photos"
-            :key="photo.id"
-            class="photo"
-            :src="absoluteUrl(photo.url)"
-            mode="aspectFill"
-            @tap="preview(photo.url)"
-          />
+          <view v-for="photo in activity.photos" :key="photo.id" class="photo-wrap">
+            <image
+              class="photo"
+              :src="absoluteUrl(photo.url)"
+              mode="aspectFill"
+              @tap="preview(photo.url)"
+            />
+            <view v-if="photo.userId === myId" class="photo-remove" @tap.stop="onRemovePhoto(photo.id)">×</view>
+          </view>
         </view>
         <view v-else class="empty-photo">
           <text class="meta">还没有照片，先上传一张吧</text>
@@ -189,8 +190,8 @@ import { activityStatusLabel, type Activity, type ActivityItem, type ActivitySta
 import {
   completeActivity,
   deleteActivityItem,
+  deleteActivityPhoto,
   getActivity,
-  getActivityByCode,
   joinActivity,
   leaveActivity,
   replyActivity,
@@ -239,7 +240,6 @@ const joinPeopleLabel = computed(() => peopleOptions[joinIndex.value] || '1人')
 const myPeopleLabel = computed(() => peopleOptions[myPeopleIndex.value] || '1人')
 const editAutoName = ref('')
 let activityId = 0
-let shareCode = ''
 
 interface DishCard {
   id: number
@@ -456,12 +456,7 @@ async function load() {
   try {
     await auth.ensureLogin()
     await auth.loadProfile()
-    if (shareCode && !activityId) {
-      activity.value = await getActivityByCode(shareCode)
-      activityId = activity.value.id
-    } else {
-      activity.value = await getActivity(activityId)
-    }
+    activity.value = await getActivity(activityId)
     fillEdit(activity.value)
     syncMyPeopleIndex(activity.value)
     requestOwnerLeaveSubscribe(activity.value)
@@ -632,7 +627,7 @@ async function onJoin() {
   }
   requestCancelSubscribe()
   try {
-    activity.value = await joinActivity(activity.value.shareCode, peopleCountOf(joinIndex.value))
+    activity.value = await joinActivity(activity.value.id, peopleCountOf(joinIndex.value))
     uni.showToast({ title: '已确认参加', icon: 'success' })
   } catch (error) {
     uni.showToast({ title: error instanceof Error ? error.message : '加入失败', icon: 'none' })
@@ -724,6 +719,26 @@ function onUpload() {
   })
 }
 
+function onRemovePhoto(photoId: number) {
+  if (!activity.value) {
+    return
+  }
+  uni.showModal({
+    title: '删除这张照片',
+    content: '只会删除你自己上传的照片',
+    success: async (res) => {
+      if (!res.confirm || !activity.value) {
+        return
+      }
+      try {
+        activity.value = await deleteActivityPhoto(activity.value.id, photoId)
+      } catch (error) {
+        uni.showToast({ title: error instanceof Error ? error.message : '删除失败', icon: 'none' })
+      }
+    },
+  })
+}
+
 function preview(url?: string | null) {
   if (!activity.value || !url) {
     return
@@ -740,20 +755,21 @@ function enableShare() {
 
 onLoad((query) => {
   activityId = Number(query?.id) || 0
-  shareCode = typeof query?.code === 'string' ? query.code : ''
   enableShare()
 })
 
 onShow(() => {
   enableShare()
-  if (activityId || shareCode) {
-    void load()
+  if (!activityId) {
+    errorMessage.value = '活动不存在'
+    return
   }
+  void load()
 })
 
 onShareAppMessage(() => ({
   title: activity.value ? `${activity.value.name}，来加道菜` : '来加道菜',
-  path: activity.value ? `/pages/activity/detail?code=${activity.value.shareCode}` : '/pages/activity/activity',
+  path: activity.value ? `/pages/activity/detail?id=${activity.value.id}` : '/pages/activity/activity',
 }))
 </script>
 
@@ -1067,11 +1083,31 @@ onShareAppMessage(() => ({
   margin-bottom: 10px;
 }
 
+.photo-wrap {
+  position: relative;
+  width: 96px;
+  height: 96px;
+}
+
 .photo {
   width: 96px;
   height: 96px;
   border-radius: 10px;
   background: #e8e2d8;
+}
+
+.photo-remove {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 0 10px 0 12px;
+  background: rgba(47, 44, 40, 0.72);
+  color: #fff;
+  font-size: 18px;
+  line-height: 32px;
+  text-align: center;
 }
 
 .activity-actions {

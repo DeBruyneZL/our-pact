@@ -23,8 +23,6 @@ public class Activity extends BaseEntity {
 
     private String location;
 
-    private String shareCode;
-
     private Long userId;
 
     /** 发起人一方人数 */

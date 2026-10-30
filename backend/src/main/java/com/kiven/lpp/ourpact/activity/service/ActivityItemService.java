@@ -9,4 +9,9 @@ import com.kiven.lpp.ourpact.activity.entity.ActivityItem;
  * @author zhangliang
  */
 public interface ActivityItemService extends IService<ActivityItem> {
+
+    /**
+     * 锁住该活动下的菜并返回数量。
+     */
+    int lockCount(Long activityId);
 }

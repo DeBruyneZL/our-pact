@@ -3,7 +3,7 @@
 <mapper namespace="com.kiven.lpp.ourpact.activity.mapper.ActivityMapper">
 
     <sql id="activityColumns">
-        t.id, t.name, t.scheduled_at, t.location, t.share_code, t.user_id, t.people_count, t.status,
+        t.id, t.name, t.scheduled_at, t.location, t.user_id, t.people_count, t.status,
         t.reply_note, t.replied_at, t.withdrawn_at, t.completed_at, t.create_time, t.update_time
     </sql>
 

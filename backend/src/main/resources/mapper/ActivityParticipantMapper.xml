@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.kiven.lpp.ourpact.activity.mapper.ActivityParticipantMapper">
+
+    <update id="restore">
+        UPDATE act_participant
+        SET deleted = 0,
+            people_count = #{peopleCount},
+            update_time = CURRENT_TIMESTAMP
+        WHERE activity_id = #{activityId}
+          AND user_id = #{userId}
+          AND deleted = 1
+    </update>
+
+</mapper>

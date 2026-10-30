@@ -30,8 +30,8 @@ interface ActivityPage {
 }
 
 /** 我发起或参与的活动。 */
-export function pageMyActivities(status?: ActivityStatus): Promise<ActivityPage> {
-  return http.post<ActivityPage>('/activity/page', { pageNum: 1, pageSize: 50, status })
+export function pageMyActivities(pageNum: number, pageSize: number, status?: ActivityStatus): Promise<ActivityPage> {
+  return http.post<ActivityPage>('/activity/page', { pageNum, pageSize, status })
 }
 
 export function createActivity(payload: ActivitySavePayload): Promise<Activity> {
@@ -42,12 +42,8 @@ export function getActivity(id: number): Promise<Activity> {
   return http.get<Activity>(`/activity/${id}`)
 }
 
-export function getActivityByCode(shareCode: string): Promise<Activity> {
-  return http.get<Activity>(`/activity/code/${encodeURIComponent(shareCode)}`)
-}
-
-export function joinActivity(shareCode: string, peopleCount: number): Promise<Activity> {
-  return http.post<Activity>(`/activity/code/${encodeURIComponent(shareCode)}/join`, { peopleCount })
+export function joinActivity(id: number, peopleCount: number): Promise<Activity> {
+  return http.post<Activity>(`/activity/${id}/join`, { peopleCount })
 }
 
 export function updateActivityPeople(id: number, peopleCount: number): Promise<Activity> {
@@ -59,8 +55,8 @@ export function leaveActivity(id: number): Promise<Activity> {
 }
 
 /** 管理端：全部活动分页。管理员看待确认时传 status=open。 */
-export function pageManageActivities(status?: ActivityStatus): Promise<ActivityPage> {
-  return http.post<ActivityPage>('/activity/manage/page', { pageNum: 1, pageSize: 50, status })
+export function pageManageActivities(pageNum: number, pageSize: number, status?: ActivityStatus): Promise<ActivityPage> {
+  return http.post<ActivityPage>('/activity/manage/page', { pageNum, pageSize, status })
 }
 
 /** 管理员答复待确认活动。 */
@@ -86,6 +82,11 @@ export function withdrawActivity(id: number): Promise<Activity> {
 
 export function completeActivity(id: number): Promise<Activity> {
   return http.post<Activity>(`/activity/${id}/complete`)
+}
+
+/** 删除自己上传的活动照片。 */
+export function deleteActivityPhoto(activityId: number, photoId: number): Promise<Activity> {
+  return http.post<Activity>(`/activity/${activityId}/photos/${photoId}/delete`)
 }
 
 /** 完成后上传一张照片。 */

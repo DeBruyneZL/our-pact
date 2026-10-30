@@ -18,7 +18,8 @@
       "path": "pages/activity/activity",
       "style": {
         "navigationStyle": "custom",
-        "navigationBarTitleText": "活动"
+        "navigationBarTitleText": "活动",
+        "onReachBottomDistance": 120
       }
     },
     {

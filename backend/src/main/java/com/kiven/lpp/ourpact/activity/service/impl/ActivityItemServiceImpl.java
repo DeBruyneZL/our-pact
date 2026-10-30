@@ -13,4 +13,10 @@ import org.springframework.stereotype.Service;
  */
 @Service
 public class ActivityItemServiceImpl extends ServiceImpl<ActivityItemMapper, ActivityItem> implements ActivityItemService {
+
+    @Override
+    public int lockCount(Long activityId) {
+        Integer count = baseMapper.lockCount(activityId);
+        return count == null ? 0 : count;
+    }
 }

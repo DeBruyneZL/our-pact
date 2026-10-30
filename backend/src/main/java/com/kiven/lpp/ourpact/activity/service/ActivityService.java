@@ -14,7 +14,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.util.List;
 
 /**
- * 活动：发起、分享加菜、答复、撤回和完成后的照片。
+ * 活动：发起、加菜、答复、撤回和完成后的照片。
  *
  * @author zhangliang
  */
@@ -36,19 +36,14 @@ public interface ActivityService {
     PageResult<ActivityResponse> managePage(ActivityPageQuery query);
 
     /**
-     * 参与人或管理员查看活动。
+     * 登录用户查看活动。未加入的人也可以看，用来从分享卡片进入后再参加。
      */
     ActivityResponse detail(Long id);
 
     /**
-     * 凭分享码查看活动。
-     */
-    ActivityResponse detailByCode(String shareCode);
-
-    /**
      * 确认参加并填写人数。已撤回或已完成不能加入。
      */
-    ActivityResponse join(String shareCode, ActivityJoinRequest request);
+    ActivityResponse join(Long id, ActivityJoinRequest request);
 
     /**
      * 已参加的人修改自己这边的人数。发起人改活动人数，参与人改参与记录。
@@ -86,7 +81,7 @@ public interface ActivityService {
     ActivityResponse complete(Long id);
 
     /**
-     * 管理员答复。答复不是审批，也不挡住此前的分享加菜。
+     * 管理员答复。答复不是审批，也不挡住加菜。
      */
     ActivityResponse reply(Long id, ActivityReplyRequest request);
 
@@ -94,6 +89,11 @@ public interface ActivityService {
      * 完成后，参与人上传一张照片。
      */
     ActivityResponse uploadPhoto(Long id, MultipartFile file);
+
+    /**
+     * 上传人删除自己的照片。
+     */
+    ActivityResponse deletePhoto(Long id, Long photoId);
 
     /**
      * 管理员删除活动。

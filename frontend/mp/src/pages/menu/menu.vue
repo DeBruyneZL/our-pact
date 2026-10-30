@@ -131,7 +131,7 @@
           </picker>
           <button class="cart-btn sheet-btn" :disabled="submitting" @tap="onCreate">确认发起</button>
         </template>
-        <button class="text-btn" @tap="showList = false">继续挑</button>
+        <button class="continue-pick" hover-class="none" @tap="showList = false">继续挑</button>
       </view>
     </view>
 
@@ -1426,5 +1426,22 @@ onShow(() => {
   background: transparent;
   color: #5c5852;
   font-size: 13px;
+}
+
+.continue-pick {
+  width: 100%;
+  margin: 12px 0 0;
+  padding: 0;
+  height: 44px;
+  line-height: 44px;
+  border-radius: 12px;
+  background: #efeae2;
+  color: #3d6f5c;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.continue-pick::after {
+  border: none;
 }
 </style>
