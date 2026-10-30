@@ -230,6 +230,7 @@ import {
   assertFutureSchedule,
   defaultActivityName,
   peopleCountOf,
+  syncActivityLocation,
   todayText,
 } from '@/utils/activityForm'
 import { setTabBarHidden, syncTabBar } from '@/utils/tabBar'
@@ -286,6 +287,7 @@ const activityName = ref('')
 const activityDate = ref('')
 const activityTime = ref('18:00')
 const activityLocation = ref(DEFAULT_ACTIVITY_LOCATION)
+const autoLocation = ref(DEFAULT_ACTIVITY_LOCATION)
 const peopleIndex = ref(0)
 const autoName = ref('')
 const peopleOptions = PEOPLE_OPTIONS
@@ -511,10 +513,6 @@ function pickOption(dishId: number, groupId: number, valueId: number | null) {
   }
   ensureOptionPicks(dish)
   optionPicks[dishId][groupId] = valueId
-  if (!pendingActivity.value && !selected[dishId]) {
-    selected[dishId] = true
-    updatePaneHeight()
-  }
 }
 
 function optionSummaryText(dish?: Dish) {
@@ -680,11 +678,9 @@ function openCreateFromCart() {
     activityDate.value = todayText()
   }
   syncAutoName(activityDate.value)
-  if (!activityLocation.value.trim()) {
-    activityLocation.value = DEFAULT_ACTIVITY_LOCATION
-  }
   createMode.value = true
   showList.value = true
+  void refreshDefaultLocation()
 }
 
 function removeDish(dishId: number) {
@@ -703,6 +699,12 @@ function syncAutoName(dateText: string) {
     activityName.value = next
   }
   autoName.value = next
+}
+
+async function refreshDefaultLocation() {
+  const synced = await syncActivityLocation(activityLocation.value, autoLocation.value)
+  activityLocation.value = synced.location
+  autoLocation.value = synced.auto
 }
 
 function onDateTimeChange(payload: { date: string; time: string }) {
@@ -848,7 +850,7 @@ async function onCreate() {
     clearSelection()
     activityName.value = ''
     autoName.value = ''
-    activityLocation.value = DEFAULT_ACTIVITY_LOCATION
+    activityLocation.value = autoLocation.value
     peopleIndex.value = 0
     uni.navigateTo({ url: `/pages/activity/detail?id=${created.id}` })
   } catch (error) {
@@ -894,6 +896,7 @@ onShow(() => {
     activityDate.value = todayText()
   }
   syncAutoName(activityDate.value)
+  void refreshDefaultLocation()
   void load().then(() => updatePaneHeight())
   void loadAdded().then(() => updatePaneHeight())
 })

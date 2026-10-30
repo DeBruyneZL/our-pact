@@ -30,7 +30,8 @@
               class="name-input"
               type="nickname"
               :value="nameInput"
-              placeholder="点此选微信昵称"
+              maxlength="10"
+              placeholder="昵称，最多 10 个字"
               placeholder-class="name-placeholder"
               @input="onNicknameInput"
               @blur="onNicknameBlur"
@@ -93,7 +94,7 @@
 <script setup lang="ts">
 import { onShow } from '@dcloudio/uni-app'
 import { computed, getCurrentInstance, ref } from 'vue'
-import { PHONE_PATTERN } from '@our-pact/shared/pure'
+import { NICKNAME_MAX_LENGTH, PHONE_PATTERN } from '@our-pact/shared/pure'
 import { updateProfile, uploadAvatar } from '@/api/auth'
 import BrandNav from '@/components/BrandNav.vue'
 import PageLoading from '@/components/PageLoading.vue'
@@ -142,6 +143,16 @@ function isPlaceholderName(name?: string | null) {
   return !name || name === '微信用户'
 }
 
+/** 微信昵称填充可能绕过 maxlength，超出时截到 10 个字并提示。 */
+function clipNickname(name: string) {
+  const trimmed = name.trim()
+  if (trimmed.length <= NICKNAME_MAX_LENGTH) {
+    return trimmed
+  }
+  uni.showToast({ title: '昵称不能超过 10 个字', icon: 'none' })
+  return trimmed.slice(0, NICKNAME_MAX_LENGTH)
+}
+
 async function loadProfile() {
   pageLoading.value = !hasProfile.value
   errorMessage.value = ''
@@ -173,7 +184,7 @@ function onCancelEdit() {
 }
 
 function onNicknameInput(event: FieldEvent) {
-  nameInput.value = event.detail?.value || ''
+  nameInput.value = clipNickname(event.detail?.value || '')
 }
 
 /** 微信昵称快捷填充可能不回写受控值，失焦时读原生值到本地，等点保存再提交。 */
@@ -184,7 +195,7 @@ async function onNicknameBlur(event: FieldEvent) {
     name = await readNativeNickname()
   }
   if (!isPlaceholderName(name)) {
-    nameInput.value = name
+    nameInput.value = clipNickname(name)
   }
 }
 
@@ -195,7 +206,7 @@ async function onNicknameReview(event: FieldEvent) {
   await wait(200)
   const name = await readNativeNickname()
   if (!isPlaceholderName(name)) {
-    nameInput.value = name
+    nameInput.value = clipNickname(name)
   }
 }
 
@@ -235,6 +246,10 @@ async function onSaveAll() {
   }
   if (isPlaceholderName(name)) {
     uni.showToast({ title: '请先选择昵称', icon: 'none' })
+    return
+  }
+  if (name.length > NICKNAME_MAX_LENGTH) {
+    uni.showToast({ title: '昵称不能超过 10 个字', icon: 'none' })
     return
   }
   if (!previewAvatar.value) {

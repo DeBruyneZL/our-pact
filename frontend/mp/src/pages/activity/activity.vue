@@ -26,7 +26,9 @@
           @tap="openDetail(row.id)"
         >
           <view class="row">
-            <text class="title">{{ row.title }}</text>
+            <view class="title-wrap">
+              <text class="title">{{ row.title }}</text>
+            </view>
             <text :class="row.statusSkin">{{ row.status }}</text>
           </view>
           <text class="meta">{{ row.when }}</text>
@@ -76,6 +78,7 @@ import {
   assertFutureSchedule,
   defaultActivityName,
   peopleCountOf,
+  syncActivityLocation,
   todayText,
 } from '@/utils/activityForm'
 import { setTabBarHidden, syncTabBar } from '@/utils/tabBar'
@@ -100,6 +103,7 @@ const activityName = ref('')
 const activityDate = ref('')
 const activityTime = ref('18:00')
 const activityLocation = ref(DEFAULT_ACTIVITY_LOCATION)
+const autoLocation = ref(DEFAULT_ACTIVITY_LOCATION)
 const peopleIndex = ref(0)
 const autoName = ref('')
 
@@ -181,11 +185,15 @@ function openCreate() {
     activityDate.value = minDate.value
   }
   syncAutoName(activityDate.value)
-  if (!activityLocation.value.trim()) {
-    activityLocation.value = DEFAULT_ACTIVITY_LOCATION
-  }
   peopleIndex.value = 0
   showCreate.value = true
+  void refreshDefaultLocation()
+}
+
+async function refreshDefaultLocation() {
+  const synced = await syncActivityLocation(activityLocation.value, autoLocation.value)
+  activityLocation.value = synced.location
+  autoLocation.value = synced.auto
 }
 
 function switchMode(mode: ListMode) {
@@ -349,7 +357,7 @@ async function onCreate() {
     showCreate.value = false
     activityName.value = ''
     autoName.value = ''
-    activityLocation.value = DEFAULT_ACTIVITY_LOCATION
+    activityLocation.value = autoLocation.value
     peopleIndex.value = 0
     uni.navigateTo({ url: `/pages/activity/detail?id=${created.id}` })
   } catch (error) {
@@ -366,6 +374,7 @@ onShow(() => {
     activityDate.value = todayText()
   }
   void load()
+  void refreshDefaultLocation()
 })
 
 onReachBottom(() => {
@@ -497,6 +506,7 @@ onReachBottom(() => {
   border-radius: 14px;
   padding: 14px;
   margin-bottom: 12px;
+  overflow: hidden;
 }
 
 .card.completed {
@@ -511,17 +521,25 @@ onReachBottom(() => {
 
 .row {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
+  min-width: 0;
+}
+
+.title-wrap {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .title {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
   font-size: 16px;
   font-weight: 700;
   color: #2f2c28;
-  flex: 1;
-  min-width: 0;
 }
 
 .status {
@@ -551,6 +569,9 @@ onReachBottom(() => {
 .meta {
   display: block;
   margin-top: 6px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
   color: #8a8680;
   font-size: 13px;
 }

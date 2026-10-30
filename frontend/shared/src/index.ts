@@ -15,6 +15,7 @@ export { fileFromDataUrl, menuApi } from './api/menu'
 export { shopApi } from './api/shop'
 export {
   AVATAR_MAX_BYTES,
+  NICKNAME_MAX_LENGTH,
   PHONE_PATTERN,
   adminHomeUrl,
   assertAvatarFile,

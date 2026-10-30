@@ -30,7 +30,20 @@
         <text v-if="activity.replyNote" class="meta">答复：{{ activity.replyNote }}</text>
         <view class="share-row">
           <button class="ghost" hover-class="none" open-type="share">发给好友</button>
-          <button v-if="activity.canEdit && !editing" class="text-action inline-action" @tap="startEdit">修改活动</button>
+          <view class="share-end">
+            <button v-if="activity.canEdit && !editing" class="text-action inline-action" @tap="startEdit">修改活动</button>
+            <view
+              v-if="posterDishes.length"
+              class="poster-icon"
+              :class="{ busy: posterBusy }"
+              @tap="onMakePoster"
+            >
+              <view class="poster-frame">
+                <view class="poster-sun" />
+                <view class="poster-peak" />
+              </view>
+            </view>
+          </view>
         </view>
       </view>
 
@@ -178,6 +191,17 @@
           <text class="text-link" @tap="showPeople = false">关闭</text>
         </view>
       </view>
+
+      <canvas id="menuPoster" type="2d" class="poster-canvas" />
+      <view v-if="posterPath" class="mask poster-mask" @tap="posterPath = ''">
+        <view class="poster-sheet" @tap.stop>
+          <scroll-view scroll-y class="poster-scroll">
+            <image class="poster-image" :src="posterPath" mode="widthFix" />
+          </scroll-view>
+          <button class="save-action poster-save" @tap="onSavePoster">保存到相册</button>
+          <text class="text-link" @tap="posterPath = ''">关闭</text>
+        </view>
+      </view>
     </template>
     </view>
   </view>
@@ -185,7 +209,7 @@
 
 <script setup lang="ts">
 import { onLoad, onShareAppMessage, onShow } from '@dcloudio/uni-app'
-import { computed, reactive, ref } from 'vue'
+import { computed, getCurrentInstance, reactive, ref } from 'vue'
 import { activityStatusLabel, type Activity, type ActivityItem, type ActivityStatus } from '@our-pact/shared'
 import {
   completeActivity,
@@ -204,6 +228,7 @@ import BrandNav from '@/components/BrandNav.vue'
 import DateTimeField from '@/components/DateTimeField.vue'
 import PageLoading from '@/components/PageLoading.vue'
 import { absoluteUrl, CANCEL_TEMPLATE_ID, LEAVE_TEMPLATE_ID } from '@/config'
+import { getShopProfile } from '@/api/shop'
 import { useAuthStore } from '@/stores/auth'
 import {
   PEOPLE_OPTIONS,
@@ -213,10 +238,12 @@ import {
   peopleIndexOf,
   todayText,
 } from '@/utils/activityForm'
+import { paintMenuPoster } from '@/utils/menuPoster'
 
 const PENDING_KEY = 'our-pact.pending-activity'
 
 const auth = useAuthStore()
+const page = getCurrentInstance()
 const activity = ref<Activity | null>(null)
 const failedThumbs = reactive<Record<number, boolean>>({})
 const loading = ref(false)
@@ -231,6 +258,8 @@ const joinIndex = ref(0)
 const myPeopleIndex = ref(0)
 const savingPeople = ref(false)
 const leaving = ref(false)
+const posterBusy = ref(false)
+const posterPath = ref('')
 const replying = ref(false)
 const replyNote = ref('')
 const showPeople = ref(false)
@@ -393,6 +422,26 @@ const repeatCards = computed(() => {
       moreText: allPeople.length > 5 ? `...等${allPeople.length}人` : '',
     }
   })
+})
+
+const posterDishes = computed(() => {
+  const shared = sharedCards.value.map((row) => ({
+    title: row.title,
+    extra: row.extra,
+    imageUrl: row.showCover ? row.coverSrc : '',
+  }))
+  const repeats = repeatCards.value.map((row) => {
+    const count = row.moreText
+      ? Number(row.moreText.replace(/\D/g, '')) || row.avatars.length
+      : row.avatars.length
+    const countText = count > 1 ? `${count} 人点了` : ''
+    return {
+      title: row.title,
+      extra: [countText, row.extra].filter(Boolean).join(' · '),
+      imageUrl: row.showCover ? row.coverSrc : '',
+    }
+  })
+  return [...shared, ...repeats]
 })
 
 function toDishCard(current: Activity, item: ActivityItem, withWho: boolean): DishCard {
@@ -749,6 +798,95 @@ function preview(url?: string | null) {
   })
 }
 
+async function onMakePoster() {
+  const current = activity.value
+  if (!current || posterBusy.value) {
+    return
+  }
+  posterBusy.value = true
+  uni.showLoading({ title: '正在生成', mask: true })
+  try {
+    const shop = await getShopProfile().catch(() => null)
+    const canvas = await posterCanvas()
+    await paintMenuPoster(canvas, {
+      chefName: (shop?.chefName || '').trim(),
+      chefTitle: (shop?.chefTitle || '').trim(),
+      chefAvatarUrl: shop?.chefAvatarUrl ? absoluteUrl(shop.chefAvatarUrl) : '',
+      shopLocation: (shop?.location || '').trim(),
+      slogan: (shop?.slogan || '').trim(),
+      activityName: current.name,
+      whenText: whenText.value,
+      peopleText: peopleText.value,
+      dishes: posterDishes.value,
+    })
+    posterPath.value = await exportPoster(canvas)
+  } catch (error) {
+    uni.showToast({ title: error instanceof Error ? error.message : '生成失败', icon: 'none' })
+  } finally {
+    uni.hideLoading()
+    posterBusy.value = false
+  }
+}
+
+function posterCanvas() {
+  return new Promise<Parameters<typeof paintMenuPoster>[0]>((resolve, reject) => {
+    const query = uni.createSelectorQuery()
+    if (page?.proxy) {
+      query.in(page.proxy as never)
+    }
+    query.select('#menuPoster').fields({ node: true, size: true }).exec((result) => {
+      const node = (result?.[0] as { node?: Parameters<typeof paintMenuPoster>[0] } | undefined)?.node
+      if (!node) {
+        reject(new Error('画布还没准备好'))
+        return
+      }
+      resolve(node)
+    })
+  })
+}
+
+function exportPoster(canvas: Parameters<typeof paintMenuPoster>[0]) {
+  return new Promise<string>((resolve, reject) => {
+    uni.canvasToTempFilePath({
+      canvas: canvas as never,
+      fileType: 'png',
+      success: (result) => resolve(result.tempFilePath),
+      fail: () => reject(new Error('生成失败')),
+    })
+  })
+}
+
+function onSavePoster() {
+  const path = posterPath.value
+  if (!path) {
+    return
+  }
+  uni.authorize({
+    scope: 'scope.writePhotosAlbum',
+    success: () => writePoster(path),
+    fail: () => {
+      uni.showModal({
+        title: '需要相册权限',
+        content: '保存菜单图片需要允许访问相册',
+        confirmText: '去设置',
+        success: (result) => {
+          if (result.confirm) {
+            uni.openSetting({})
+          }
+        },
+      })
+    },
+  })
+}
+
+function writePoster(path: string) {
+  uni.saveImageToPhotosAlbum({
+    filePath: path,
+    success: () => uni.showToast({ title: '已保存到相册', icon: 'success' }),
+    fail: () => uni.showToast({ title: '保存失败', icon: 'none' }),
+  })
+}
+
 function enableShare() {
   uni.showShareMenu({ menus: ['shareAppMessage'] })
 }
@@ -795,6 +933,7 @@ onShareAppMessage(() => ({
   border-radius: 14px;
   padding: 14px;
   margin-bottom: 12px;
+  overflow: hidden;
 }
 
 .row,
@@ -803,6 +942,11 @@ onShareAppMessage(() => ({
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+  min-width: 0;
+}
+
+.row {
+  align-items: flex-start;
 }
 
 .dish {
@@ -843,6 +987,14 @@ onShareAppMessage(() => ({
   font-weight: 700;
 }
 
+.name {
+  flex: 1;
+  min-width: 0;
+  display: block;
+  line-height: 1.4;
+  word-break: break-all;
+}
+
 .section {
   display: block;
   margin-bottom: 10px;
@@ -875,6 +1027,8 @@ onShareAppMessage(() => ({
   margin-top: 6px;
   color: #8a8680;
   font-size: 13px;
+  line-height: 1.45;
+  word-break: break-all;
 }
 
 .share-row {
@@ -1129,7 +1283,8 @@ onShareAppMessage(() => ({
 .text-action::after,
 .save-action::after,
 .complete-action::after,
-.withdraw-action::after {
+.withdraw-action::after,
+.ghost::after {
   border: none;
 }
 
@@ -1225,8 +1380,91 @@ onShareAppMessage(() => ({
   margin: 0;
 }
 
-.ghost::after {
-  border: none;
+.share-end {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}
+
+.poster-icon {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.poster-icon.busy {
+  opacity: 0.4;
+}
+
+.poster-frame {
+  width: 18px;
+  height: 15px;
+  border: 1.5px solid #3d6f5c;
+  border-radius: 3px;
+  position: relative;
+  box-sizing: border-box;
+}
+
+.poster-sun {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: #3d6f5c;
+}
+
+.poster-peak {
+  position: absolute;
+  left: 3px;
+  bottom: 2px;
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-bottom: 5px solid #3d6f5c;
+}
+
+.poster-canvas {
+  position: fixed;
+  left: -2000px;
+  top: 0;
+  width: 375px;
+  height: 200px;
+}
+
+.poster-mask {
+  z-index: 40;
+}
+
+.poster-sheet {
+  width: 100%;
+  max-height: 86vh;
+  background: #fffcf7;
+  border-radius: 20px 20px 0 0;
+  padding: 16px 16px calc(16px + env(safe-area-inset-bottom));
+  box-sizing: border-box;
+}
+
+.poster-scroll {
+  height: 62vh;
+  width: 100%;
+}
+
+.poster-image {
+  width: 100%;
+  display: block;
+}
+
+.poster-save {
+  display: block;
+  width: 100%;
+  margin-top: 12px;
 }
 
 .withdraw-action {

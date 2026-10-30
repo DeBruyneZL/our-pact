@@ -1,6 +1,9 @@
 /** 中国大陆手机号。 */
 export const PHONE_PATTERN = /^1[3-9]\d{9}$/
 
+/** 用户自己填的昵称上限，与后端 ProfileUpdateRequest 一致。 */
+export const NICKNAME_MAX_LENGTH = 10
+
 /** 与后端 spring.servlet.multipart.max-file-size 保持一致。 */
 export const AVATAR_MAX_BYTES = 10 * 1024 * 1024
 

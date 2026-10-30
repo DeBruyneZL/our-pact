@@ -14,7 +14,7 @@ import lombok.Data;
 public class ProfileUpdateRequest {
 
     @NotBlank(message = "昵称不能为空")
-    @Size(max = 64, message = "昵称不能超过 64 个字")
+    @Size(max = 10, message = "昵称不能超过 10 个字")
     private String nickname;
 
     /** 可空。小程序只改昵称时不强制填手机号。 */

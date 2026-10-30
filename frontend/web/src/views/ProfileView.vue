@@ -47,7 +47,12 @@
     <el-dialog v-model="editVisible" title="编辑资料" width="460px" destroy-on-close @closed="resetEdit">
       <el-form ref="formRef" :model="form" :rules="rules" label-width="72px">
         <el-form-item label="昵称" prop="nickname">
-          <el-input v-model="form.nickname" maxlength="64" placeholder="请输入昵称" />
+          <el-input
+            v-model="form.nickname"
+            maxlength="10"
+            show-word-limit
+            placeholder="最多 10 个字"
+          />
         </el-form-item>
         <el-form-item label="手机号" prop="phone">
           <el-input v-model="form.phone" maxlength="11" placeholder="请输入手机号" />
@@ -67,7 +72,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import type { FormInstance, FormRules } from 'element-plus'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { PHONE_PATTERN, assertAvatarFile, formatDateTime, getToken, maskPhone } from '@our-pact/shared'
+import { NICKNAME_MAX_LENGTH, PHONE_PATTERN, assertAvatarFile, formatDateTime, getToken, maskPhone } from '@our-pact/shared'
 import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
@@ -83,7 +88,10 @@ const form = reactive({
   phone: '',
 })
 const rules: FormRules = {
-  nickname: [{ required: true, message: '请填写昵称', trigger: 'blur' }],
+  nickname: [
+    { required: true, message: '请填写昵称', trigger: 'blur' },
+    { max: NICKNAME_MAX_LENGTH, message: '昵称不能超过 10 个字', trigger: 'blur' },
+  ],
   phone: [
     { required: true, message: '请填写手机号', trigger: 'blur' },
     { pattern: PHONE_PATTERN, message: '手机号格式不正确', trigger: 'blur' },
