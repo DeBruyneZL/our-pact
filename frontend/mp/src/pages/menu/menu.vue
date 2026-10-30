@@ -1,35 +1,37 @@
 <template>
   <view class="page">
     <BrandNav />
-    <ShopIntro
-      :sheet="showShop"
-      @update:sheet="showShop = $event"
-      @layout="onShopLayout"
-      @preview="onShopPreview"
-      @preview-cancel="onShopPreviewCancel"
-    />
-    <PageLoading v-if="loading" :tip="loadingText" />
-    <view v-else-if="loadError" class="center">{{ loadError }}</view>
-    <view v-else-if="emptyMenuText" class="center">{{ emptyMenuText }}</view>
+    <view class="stage" :style="stageStyle">
+      <view v-if="loading || menuReady" class="cat-side" :style="stageStyle">
+        <scroll-view v-if="menuReady" scroll-y class="cat-scroll" :style="stageStyle">
+          <view
+            v-for="cat in catCards"
+            :key="cat.id"
+            :class="cat.skin"
+            @tap="activeCategoryId = cat.id"
+          >
+            {{ cat.title }}
+          </view>
+        </scroll-view>
+      </view>
 
-    <view v-else class="menu-wrap">
-    <view v-if="addingBar" class="adding-bar">
-      <text>{{ addingBar }}</text>
-      <text class="adding-back" @tap="backToActivity">返回活动</text>
-    </view>
-    <view class="menu-tree" :style="paneStyle">
-      <scroll-view scroll-y class="cat-side" :style="paneStyle">
-        <view
-          v-for="cat in catCards"
-          :key="cat.id"
-          :class="cat.skin"
-          @tap="activeCategoryId = cat.id"
-        >
-          {{ cat.title }}
-        </view>
-      </scroll-view>
-
-      <scroll-view scroll-y :class="dishPaneSkin" :style="paneStyle">
+      <view class="stage-main">
+        <ShopIntro
+          :sheet="showShop"
+          @update:sheet="showShop = $event"
+          @layout="onShopLayout"
+          @preview="onShopPreview"
+          @preview-cancel="onShopPreviewCancel"
+        />
+        <PageLoading v-if="loading" :tip="loadingText" />
+        <view v-else-if="loadError" class="center">{{ loadError }}</view>
+        <view v-else-if="emptyMenuText" class="center">{{ emptyMenuText }}</view>
+        <view v-else class="menu-wrap">
+          <view v-if="addingBar" class="adding-bar">
+            <text>{{ addingBar }}</text>
+            <text class="adding-back" @tap="backToActivity">返回活动</text>
+          </view>
+          <scroll-view scroll-y :class="dishPaneSkin" :style="dishStyle">
         <view v-if="emptyPaneText" class="center small">{{ emptyPaneText }}</view>
         <view
           v-for="card in dishCards"
@@ -85,8 +87,9 @@
             </view>
           </view>
         </view>
-      </scroll-view>
-    </view>
+          </scroll-view>
+        </view>
+      </view>
     </view>
 
     <view v-if="showAddedFab" class="added-fab" :style="cartBarStyle" @tap="showAdded = true">
@@ -298,11 +301,16 @@ const paneHeight = ref(480)
 const cartBarBottom = ref(66)
 const shopHeight = ref(0)
 const showShop = ref(false)
-/** 预览氛围图也会触发 onShow，这次不要把介绍弹层关掉。 */
+/** 预览图片也会触发 onShow，这次不要把介绍弹层关掉，也不要重载菜单。 */
 const retainShopSheet = ref(false)
 const PENDING_KEY = 'our-pact.pending-activity'
 const loadingText = '加载中'
-const paneStyle = computed(() => ({ height: `${paneHeight.value}px` }))
+const stageStyle = computed(() => ({ height: `${paneHeight.value}px` }))
+const dishStyle = computed(() => {
+  const banner = pendingActivity.value ? 42 : 0
+  return { height: `${Math.max(paneHeight.value - shopHeight.value - banner, 120)}px` }
+})
+const menuReady = computed(() => !loading.value && !loadError.value && !emptyMenuText.value)
 const cartBarStyle = computed(() => ({ bottom: `${cartBarBottom.value}px` }))
 
 const addingTitle = computed(() => pendingActivity.value?.title || '活动')
@@ -571,14 +579,13 @@ async function load() {
   }
 }
 
-/** 页面本身不能滚动，否则自定义 tabBar 会被顶上去。高度要扣掉导航和店铺介绍。 */
+/** 页面本身不能滚动，否则自定义 tabBar 会被顶上去。左侧分类通栏，右侧再扣掉店铺介绍。 */
 function updatePaneHeight() {
   const { windowHeight, statusBarHeight, navBarHeight, tabBarHeight } = readWindowMetrics()
   cartBarBottom.value = tabBarHeight + 10
-  const banner = pendingActivity.value ? 42 : 0
   const cart = cartText.value && !showList.value ? 58 : 0
   paneHeight.value = Math.max(
-    windowHeight - statusBarHeight - navBarHeight - shopHeight.value - tabBarHeight - banner - cart,
+    windowHeight - statusBarHeight - navBarHeight - tabBarHeight - cart,
     200,
   )
 }
@@ -875,7 +882,7 @@ onShow(() => {
   const retainSheet = retainShopSheet.value
   retainShopSheet.value = false
   if (retainSheet) {
-    setTabBarHidden(true)
+    setTabBarHidden(showList.value || showAdded.value || showDetail.value || showShop.value)
     return
   }
   showShop.value = false
@@ -912,10 +919,25 @@ onShow(() => {
   font-size: 13px;
 }
 
+.stage {
+  display: flex;
+  overflow: hidden;
+}
+
+.stage-main {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
 .menu-wrap {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  min-height: 0;
 }
 
 .adding-bar {
@@ -937,16 +959,15 @@ onShow(() => {
   font-weight: 700;
 }
 
-.menu-tree {
-  display: flex;
-  overflow: hidden;
-}
-
 .cat-side {
   width: 88px;
   flex-shrink: 0;
   background: #efeae2;
   border-right: 1px solid #e5e1d8;
+}
+
+.cat-scroll {
+  width: 100%;
 }
 
 .cat-item {

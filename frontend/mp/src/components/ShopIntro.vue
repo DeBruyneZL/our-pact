@@ -1,45 +1,34 @@
 <template>
   <view class="shop" :class="{ shown: view.visible }">
-    <view v-if="view.visible && expanded" class="card" @tap="openSheet">
-      <view class="main">
-        <image
-          v-if="view.coverSrc"
-          class="cover"
-          :src="view.coverSrc"
-          mode="aspectFill"
-          @error="onCoverError"
-        />
-        <view class="copy">
-          <view class="title-row">
-            <text class="slogan">{{ view.headline }}</text>
-            <text class="fold" @tap.stop="fold">收起</text>
-          </view>
-          <text v-if="view.meta" class="meta">{{ view.meta }}</text>
-          <view v-if="view.showChef" class="chef">
-            <image
-              v-if="view.chefAvatarSrc"
-              class="avatar"
-              :src="view.chefAvatarSrc"
-              mode="aspectFill"
-              @error="onAvatarError"
-            />
-            <view v-else class="avatar avatar-fallback">{{ view.chefInitial }}</view>
-            <view class="chef-copy">
-              <text class="chef-name">{{ view.chefLabel }}</text>
-              <text v-if="view.chefIntro" class="chef-intro">{{ view.chefIntro }}</text>
-            </view>
-          </view>
+    <view v-if="view.visible" class="lead">
+      <image
+        v-if="view.chefAvatarSrc"
+        class="avatar"
+        :src="view.chefAvatarSrc"
+        mode="aspectFill"
+        @tap.stop="previewAvatar"
+        @error="onAvatarError"
+      />
+      <view v-else-if="view.showChef" class="avatar avatar-fallback">{{ view.chefInitial }}</view>
+      <view class="who" @tap="openSheet">
+        <view class="name-row">
+          <template v-if="view.chefName">
+            <text class="name">{{ view.chefName }}</text>
+            <text v-if="view.chefTitle" class="role">{{ view.chefTitle }}</text>
+          </template>
+          <text v-else-if="view.slogan" class="name">{{ view.slogan }}</text>
+          <text v-else-if="view.location" class="place-label">地址</text>
+          <text v-else class="place-label">介绍</text>
         </view>
-      </view>
-      <view v-if="view.notice" class="notice">
-        <text class="notice-label">今日</text>
-        <text class="notice-text">{{ view.notice }}</text>
+        <text v-if="view.chefName && view.slogan" class="slogan">{{ view.slogan }}</text>
+        <text v-if="view.chefIntro" class="intro">{{ view.chefIntro }}</text>
+        <text v-if="view.location" class="place">{{ view.location }}</text>
+        <text v-if="view.extra" class="extra">{{ view.extra }}</text>
       </view>
     </view>
-
-    <view v-else-if="view.visible" class="slim" @tap="unfold">
-      <text class="slim-text">{{ view.slim }}</text>
-      <text class="fold">展开</text>
+    <view v-if="view.visible && view.notice" class="notice" @tap="openSheet">
+      <text class="notice-label">今日</text>
+      <text class="notice-text">{{ view.notice }}</text>
     </view>
 
     <view v-if="sheet" class="mask" @tap="closeSheet">
@@ -51,8 +40,22 @@
             :src="view.coverSrc"
             mode="aspectFill"
             @tap="previewCover"
+            @error="onCoverError"
           />
-          <text class="sheet-title">{{ view.sheetTitle }}</text>
+          <view class="sheet-head">
+            <image
+              v-if="view.chefAvatarSrc"
+              class="sheet-avatar"
+              :src="view.chefAvatarSrc"
+              mode="aspectFill"
+              @tap="previewAvatar"
+            />
+            <view v-else-if="view.showChef" class="sheet-avatar avatar-fallback">{{ view.chefInitial }}</view>
+            <view class="sheet-id">
+              <text class="sheet-title">{{ view.sheetTitle }}</text>
+              <text v-if="view.chefName && view.chefTitle" class="sheet-role">{{ view.chefTitle }}</text>
+            </view>
+          </view>
           <view v-if="view.location" class="fact">
             <text class="fact-label">地点</text>
             <text class="fact-value">{{ view.location }}</text>
@@ -69,18 +72,8 @@
             <text class="fact-label">今日</text>
             <text class="fact-value">{{ view.notice }}</text>
           </view>
-          <view v-if="view.showChef" class="chef-block">
-            <image
-              v-if="view.chefAvatarSrc"
-              class="avatar large"
-              :src="view.chefAvatarSrc"
-              mode="aspectFill"
-            />
-            <view v-else class="avatar large avatar-fallback">{{ view.chefInitial }}</view>
-            <view class="chef-copy">
-              <text class="chef-name">{{ view.chefLabel }}</text>
-              <text v-if="view.chefIntro" class="chef-full">{{ view.chefIntro }}</text>
-            </view>
+          <view v-if="view.showChef && view.chefIntro" class="chef-block">
+            <text class="chef-full">{{ view.chefIntro }}</text>
           </view>
         </scroll-view>
         <text class="close" @tap="closeSheet">知道了</text>
@@ -111,7 +104,6 @@ const emit = defineEmits<{
 const auth = useAuthStore()
 
 const profile = ref<ShopProfile | null>(null)
-const expanded = ref(true)
 const coverFailed = ref(false)
 const avatarFailed = ref(false)
 const instance = getCurrentInstance()
@@ -134,14 +126,11 @@ const view = computed(() => {
   const chefIntro = text(profile.value?.chefIntro)
   const coverSrc = !coverFailed.value && profile.value?.coverUrl ? absoluteUrl(profile.value.coverUrl) : ''
   const chefAvatarSrc = !avatarFailed.value && profile.value?.chefAvatarUrl ? absoluteUrl(profile.value.chefAvatarUrl) : ''
-  const chefLabel = [chefTitle, chefName].filter(Boolean).join(' ')
-  const headline = slogan || location || chefLabel || '饭否'
-  const meta = [location, openHours, seatsText].filter((part) => part && part !== headline).join(' · ')
   const showChef = Boolean(chefName || chefIntro || chefAvatarSrc)
+  const extra = [openHours, seatsText].filter(Boolean).join(' · ')
   const visible = Boolean(
     slogan || location || openHours || seatsText || notice || coverSrc || showChef,
   )
-  const slim = [location || slogan, chefLabel].filter(Boolean).join(' · ') || headline
   const chefInitial = (chefName || chefTitle || '厨').slice(0, 1)
   return {
     slogan,
@@ -149,17 +138,16 @@ const view = computed(() => {
     openHours,
     seatsText,
     notice,
+    chefName,
+    chefTitle,
     chefIntro,
     coverSrc,
     chefAvatarSrc,
-    chefLabel,
-    headline,
-    meta,
+    extra,
     showChef,
     visible,
-    slim,
     chefInitial,
-    sheetTitle: slogan || '饭否',
+    sheetTitle: chefName || slogan || '饭否',
   }
 })
 
@@ -224,16 +212,6 @@ function closeSheet() {
   emit('update:sheet', false)
 }
 
-function fold() {
-  expanded.value = false
-  reportLayout()
-}
-
-function unfold() {
-  expanded.value = true
-  reportLayout()
-}
-
 function onCoverError() {
   coverFailed.value = true
   reportLayout()
@@ -242,6 +220,19 @@ function onCoverError() {
 function onAvatarError() {
   avatarFailed.value = true
   reportLayout()
+}
+
+function previewAvatar() {
+  const src = view.value.chefAvatarSrc
+  if (!src) {
+    return
+  }
+  emit('preview')
+  uni.previewImage({
+    current: src,
+    urls: [src],
+    fail: () => emit('preview-cancel'),
+  })
 }
 
 function previewCover() {
@@ -280,84 +271,82 @@ onUnmounted(() => {
   padding: 10px 10px 0;
 }
 
-.card,
-.slim {
-  background: #fffcf7;
-  border: 1px solid #e5e1d8;
-  border-radius: 14px;
-  overflow: hidden;
-}
-
-.main {
-  display: flex;
-  gap: 10px;
-  padding: 10px;
-}
-
-.cover {
-  width: 92px;
-  height: 92px;
-  border-radius: 10px;
-  flex-shrink: 0;
-  background: #e8e2d8;
-}
-
-.copy {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 4px;
-}
-
-.title-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-}
-
-.slogan {
-  flex: 1;
-  min-width: 0;
-  font-size: 16px;
-  font-weight: 700;
-  color: #2c2a26;
-  line-height: 1.35;
-}
-
-.fold {
-  flex-shrink: 0;
-  color: #3d6f5c;
-  font-size: 12px;
-  font-weight: 700;
-  line-height: 1.4;
-}
-
-.meta {
-  color: #5c5852;
-  font-size: 12px;
-  line-height: 1.45;
-}
-
-.chef {
+.lead {
   display: flex;
   align-items: center;
   gap: 8px;
+  padding-bottom: 8px;
+}
+
+.who {
+  flex: 1;
+  min-width: 0;
+}
+
+.name-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.name {
+  flex-shrink: 1;
+  min-width: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #2c2a26;
+  line-height: 1.3;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.role {
+  flex-shrink: 0;
+  padding: 0 6px;
+  height: 18px;
+  line-height: 18px;
+  border-radius: 999px;
+  background: #e6f0eb;
+  color: #3d6f5c;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.place-label {
+  flex-shrink: 0;
+  color: #8a8680;
+  font-size: 12px;
+}
+
+.slogan,
+.intro,
+.place,
+.extra {
+  display: block;
   margin-top: 2px;
+  line-height: 1.4;
+}
+
+.slogan {
+  color: #5c5852;
+  font-size: 13px;
+}
+
+.intro,
+.place,
+.extra {
+  color: #9a958c;
+  font-size: 12px;
 }
 
 .avatar {
-  width: 28px;
-  height: 28px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   background: #e6f0eb;
   flex-shrink: 0;
-}
-
-.avatar.large {
-  width: 44px;
-  height: 44px;
 }
 
 .avatar-fallback {
@@ -365,43 +354,15 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   color: #3d6f5c;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 700;
-}
-
-.avatar.large.avatar-fallback {
-  font-size: 16px;
-}
-
-.chef-copy {
-  flex: 1;
-  min-width: 0;
-}
-
-.chef-name {
-  display: block;
-  font-size: 13px;
-  font-weight: 700;
-  color: #2c2a26;
-}
-
-.chef-intro {
-  display: block;
-  width: 100%;
-  margin-top: 1px;
-  color: #8a8680;
-  font-size: 12px;
-  line-height: 1.35;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
 }
 
 .notice {
   display: flex;
   align-items: flex-start;
   gap: 6px;
-  margin: 0 10px 10px;
+  margin: 0 0 8px 44px;
   padding: 6px 8px;
   border-radius: 8px;
   background: #e6f0eb;
@@ -420,25 +381,6 @@ onUnmounted(() => {
   color: #3d6f5c;
   font-size: 12px;
   line-height: 1.45;
-}
-
-.slim {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 10px 12px;
-}
-
-.slim-text {
-  flex: 1;
-  min-width: 0;
-  font-size: 13px;
-  font-weight: 600;
-  color: #2c2a26;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
 }
 
 .mask {
@@ -474,13 +416,44 @@ onUnmounted(() => {
   display: block;
 }
 
+.sheet-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 16px 0 12px;
+}
+
+.sheet-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: #e6f0eb;
+  flex-shrink: 0;
+}
+
+.sheet-id {
+  flex: 1;
+  min-width: 0;
+}
+
 .sheet-title {
   display: block;
-  margin-top: 16px;
-  margin-bottom: 12px;
   font-size: 18px;
   font-weight: 700;
   color: #2c2a26;
+}
+
+.sheet-role {
+  display: inline-block;
+  margin-top: 6px;
+  padding: 0 8px;
+  height: 20px;
+  line-height: 20px;
+  border-radius: 999px;
+  background: #e6f0eb;
+  color: #3d6f5c;
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .fact {
@@ -506,8 +479,6 @@ onUnmounted(() => {
 }
 
 .chef-block {
-  display: flex;
-  gap: 12px;
   margin-top: 14px;
   padding-top: 14px;
   border-top: 1px solid #efeae2;

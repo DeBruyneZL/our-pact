@@ -1,5 +1,5 @@
 const MAX_EDGE = 960
-const MAX_BYTES = 2 * 1024 * 1024
+const MAX_BYTES = 10 * 1024 * 1024
 
 /** 把图片压成较短的 JPEG data URL，避免本地菜单和活动照片撑满存储。 */
 export function readImageDataUrl(file: File): Promise<string> {
@@ -7,7 +7,7 @@ export function readImageDataUrl(file: File): Promise<string> {
     return Promise.reject(new Error('请选择图片文件'))
   }
   if (file.size > MAX_BYTES) {
-    return Promise.reject(new Error('图片请小于 2MB'))
+    return Promise.reject(new Error('图片请小于 10MB'))
   }
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file)

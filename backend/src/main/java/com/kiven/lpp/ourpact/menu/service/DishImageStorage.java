@@ -20,7 +20,7 @@ import java.util.UUID;
 @Service
 public class DishImageStorage {
 
-    private static final int MAX_BYTES = 2 * 1024 * 1024;
+    private static final int MAX_BYTES = 10 * 1024 * 1024;
 
     private static final String URL_PREFIX = "/api/files/dishes/";
 
@@ -51,7 +51,7 @@ public class DishImageStorage {
         }
         byte[] content = readContent(file);
         if (content.length > MAX_BYTES) {
-            throw new BusinessException("菜品图片不能超过 2MB");
+            throw new BusinessException("菜品图片不能超过 10MB");
         }
         String extension = detectExtension(content);
         String storedName = UUID.randomUUID().toString().replace("-", "") + "." + extension;

@@ -82,23 +82,30 @@
 
       <aside class="preview">
         <p class="preview-label">点菜页上的样子</p>
-        <div v-if="preview.visible" class="phone-card">
-          <div class="phone-main">
-            <img v-if="form.coverUrl" class="phone-cover" :src="form.coverUrl" alt="" />
-            <div class="phone-copy">
-              <strong>{{ preview.headline }}</strong>
-              <span v-if="preview.meta">{{ preview.meta }}</span>
-              <div v-if="preview.showChef" class="phone-chef">
-                <img v-if="form.chefAvatarUrl" :src="form.chefAvatarUrl" alt="" />
-                <i v-else>{{ preview.initial }}</i>
-                <div>
-                  <b>{{ preview.chefLabel }}</b>
-                  <em v-if="form.chefIntro.trim()">{{ form.chefIntro.trim() }}</em>
+        <div v-if="preview.visible" class="phone">
+          <div class="phone-rail"><span>硬菜</span><span>热菜</span></div>
+          <div class="phone-col">
+            <div class="phone-card">
+              <img v-if="form.chefAvatarUrl" class="phone-avatar" :src="form.chefAvatarUrl" alt="" />
+              <i v-else-if="preview.showChef" class="phone-avatar">{{ preview.initial }}</i>
+              <div class="phone-copy">
+                <div class="phone-name">
+                  <template v-if="preview.chefName">
+                    <strong>{{ preview.chefName }}</strong>
+                    <em v-if="preview.chefTitle" class="role">{{ preview.chefTitle }}</em>
+                  </template>
+                  <strong v-else-if="preview.slogan">{{ preview.slogan }}</strong>
+                  <span v-else class="quiet">{{ preview.location ? '地址' : '介绍' }}</span>
                 </div>
+                <span v-if="preview.chefName && preview.slogan">{{ preview.slogan }}</span>
+                <span v-if="form.chefIntro.trim()" class="quiet">{{ form.chefIntro.trim() }}</span>
+                <span v-if="preview.location" class="quiet">{{ preview.location }}</span>
+                <span v-if="preview.extra" class="quiet">{{ preview.extra }}</span>
               </div>
             </div>
+            <p v-if="form.notice.trim()" class="phone-notice">今日 {{ form.notice.trim() }}</p>
+            <div class="phone-dish" />
           </div>
-          <p v-if="form.notice.trim()" class="phone-notice">今日 {{ form.notice.trim() }}</p>
         </div>
         <p v-else class="preview-empty">还是空的，小程序上先不显示。</p>
       </aside>
@@ -133,19 +140,19 @@ const preview = computed(() => {
   const seatsText = form.seatsText.trim()
   const chefName = form.chefName.trim()
   const chefTitle = form.chefTitle.trim() || (chefName ? '主厨' : '')
-  const chefLabel = [chefTitle, chefName].filter(Boolean).join(' ')
-  const headline = slogan || location || chefLabel || '饭否'
-  const meta = [location, openHours, seatsText].filter((part) => part && part !== headline).join(' · ')
+  const extra = [openHours, seatsText].filter(Boolean).join(' · ')
   const showChef = Boolean(chefName || form.chefIntro.trim() || form.chefAvatarUrl)
   const visible = Boolean(
     slogan || location || openHours || seatsText || form.notice.trim() || form.coverUrl || showChef,
   )
   return {
-    headline,
-    meta,
+    slogan,
+    location,
+    extra,
+    chefName,
+    chefTitle,
     showChef,
     visible,
-    chefLabel,
     initial: (chefName || chefTitle || '厨').slice(0, 1),
   }
 })
@@ -309,85 +316,125 @@ onMounted(() => {
   font-size: 13px;
 }
 
-.phone-card {
+.phone {
+  display: flex;
   margin-top: 10px;
-  padding: 12px;
+  height: 168px;
   border: 1px solid #e5e1d8;
-  border-radius: 16px;
-  background: #fffcf7;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #f7f5f0;
 }
 
-.phone-main {
-  display: flex;
-  gap: 10px;
-}
-
-.phone-cover {
-  width: 84px;
-  height: 84px;
-  border-radius: 10px;
-  object-fit: cover;
-  background: #e8e2d8;
+.phone-rail {
+  width: 52px;
   flex-shrink: 0;
-}
-
-.phone-copy {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.phone-copy strong {
-  font-size: 15px;
-  line-height: 1.35;
-}
-
-.phone-copy span,
-.phone-chef em {
-  color: #5c5852;
+  padding: 12px 0;
+  background: #efeae2;
+  border-right: 1px solid #e5e1d8;
+  color: #8a8680;
   font-size: 12px;
-  line-height: 1.45;
-  font-style: normal;
+  text-align: center;
 }
 
-.phone-chef {
+.phone-rail span {
+  display: block;
+  padding: 8px 0;
+}
+
+.phone-rail span:first-child {
+  color: #3d6f5c;
+  font-weight: 700;
+  background: #f7f5f0;
+}
+
+.phone-col {
+  flex: 1;
+  min-width: 0;
+  padding: 10px;
+}
+
+.phone-card {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-top: 4px;
 }
 
-.phone-chef img,
-.phone-chef i {
-  width: 28px;
-  height: 28px;
+.phone-dish {
+  height: 64px;
+  margin-top: 10px;
+  border: 1px solid #e5e1d8;
+  border-radius: 10px;
+  background: #fffcf7;
+}
+
+.phone-avatar {
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
+  object-fit: cover;
   background: #e6f0eb;
   flex-shrink: 0;
-  object-fit: cover;
 }
 
-.phone-chef i {
+i.phone-avatar {
   display: flex;
   align-items: center;
   justify-content: center;
   color: #3d6f5c;
   font-style: normal;
-  font-size: 12px;
+  font-size: 15px;
   font-weight: 700;
 }
 
-.phone-chef b,
-.phone-chef em {
-  display: block;
+.phone-copy {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
-.phone-chef em {
+.phone-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.phone-name strong {
+  font-size: 16px;
+  line-height: 1.3;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  max-width: 160px;
+}
+
+.phone-name .role {
+  flex-shrink: 0;
+  padding: 0 6px;
+  height: 18px;
+  line-height: 18px;
+  border-radius: 999px;
+  background: #e6f0eb;
+  color: #3d6f5c;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 600;
+}
+
+.phone-copy span {
+  color: #5c5852;
+  font-size: 13px;
+  line-height: 1.4;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.phone-copy span.quiet {
+  color: #9a958c;
+  font-size: 12px;
 }
 
 .phone-notice {

@@ -2,7 +2,7 @@
 export const PHONE_PATTERN = /^1[3-9]\d{9}$/
 
 /** 与后端 spring.servlet.multipart.max-file-size 保持一致。 */
-export const AVATAR_MAX_BYTES = 2 * 1024 * 1024
+export const AVATAR_MAX_BYTES = 10 * 1024 * 1024
 
 const AVATAR_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
 
@@ -12,6 +12,6 @@ export function assertAvatarFile(file: File) {
     throw new Error('头像只支持 jpg、png、gif、webp')
   }
   if (file.size > AVATAR_MAX_BYTES) {
-    throw new Error('头像不能超过 2MB')
+    throw new Error('头像不能超过 10MB')
   }
 }

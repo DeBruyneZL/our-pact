@@ -52,7 +52,7 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(MaxUploadSizeExceededException.class)
     public Result<Void> handleUploadSize(MaxUploadSizeExceededException exception) {
-        return Result.fail("图片不能超过 2MB");
+        return Result.fail("图片不能超过 10MB");
     }
 
     /**
