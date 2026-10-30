@@ -1,9 +1,24 @@
 <template>
-  <view class="page">
-    <BrandNav />
-    <view class="stage" :style="stageStyle">
-      <view v-if="loading || menuReady" class="cat-side" :style="stageStyle">
-        <scroll-view v-if="menuReady" scroll-y class="cat-scroll" :style="stageStyle">
+  <view class="page" :style="pageStyle">
+    <view class="hero">
+      <image class="hero-img" :src="MENU_HERO_URL" mode="aspectFill" />
+    </view>
+    <view class="board">
+    <!-- 必须自带 v-if。否则微信会把属性串和 wx:if 收成同一个字段，挂载时 split 报错，整页停在加载中。 -->
+    <ShopIntro
+      v-if="shopIntroOn"
+      :sheet="showShop"
+      @update:sheet="showShop = $event"
+      @layout="onShopLayout"
+      @preview="onShopPreview"
+      @preview-cancel="onShopPreviewCancel"
+    />
+    <view class="menu-head">
+      <text class="menu-label">菜单</text>
+    </view>
+    <view class="stage">
+      <view v-if="loading || menuReady" class="cat-side">
+        <scroll-view v-if="menuReady" scroll-y class="cat-scroll" :style="paneStyle">
           <view
             v-for="cat in catCards"
             :key="cat.id"
@@ -16,14 +31,7 @@
       </view>
 
       <view class="stage-main">
-        <ShopIntro
-          :sheet="showShop"
-          @update:sheet="showShop = $event"
-          @layout="onShopLayout"
-          @preview="onShopPreview"
-          @preview-cancel="onShopPreviewCancel"
-        />
-        <PageLoading v-if="loading" :tip="loadingText" />
+        <PageLoading v-if="loading" fill :tip="loadingText" />
         <view v-else-if="loadError" class="center">{{ loadError }}</view>
         <view v-else-if="emptyMenuText" class="center">{{ emptyMenuText }}</view>
         <view v-else class="menu-wrap">
@@ -31,6 +39,7 @@
             <text>{{ addingBar }}</text>
             <text class="adding-back" @tap="backToActivity">返回活动</text>
           </view>
+          <text v-if="activeCategoryTitle" class="pane-title">{{ activeCategoryTitle }}</text>
           <scroll-view scroll-y :class="dishPaneSkin" :style="dishStyle">
         <view v-if="emptyPaneText" class="center small">{{ emptyPaneText }}</view>
         <view
@@ -55,6 +64,7 @@
                 <text class="dish-desc">{{ card.dishDesc }}</text>
               </view>
               <view
+                :id="'plus-' + card.id"
                 class="plus"
                 :class="{ done: card.plusDone }"
                 @tap.stop="onQuickAdd(card.id)"
@@ -91,8 +101,9 @@
         </view>
       </view>
     </view>
+    </view>
 
-    <view v-if="showAddedFab" class="added-fab" :style="cartBarStyle" @tap="showAdded = true">
+    <view v-if="showAddedFab" class="added-fab" :class="{ bump: listBump }" :style="cartBarStyle" @tap="showAdded = true">
       <view class="fab-lines">
         <view class="fab-line" />
         <view class="fab-line" />
@@ -101,7 +112,7 @@
       <view v-if="addedBadge" class="fab-badge">{{ addedBadge }}</view>
     </view>
 
-    <view v-if="cartText && !showList" class="cart-bar" :style="cartBarStyle">
+    <view v-if="cartText && !showList" class="cart-bar" :class="{ bump: listBump }" :style="cartBarStyle">
       <view class="cart-main" @tap="openCartSheet">
         <text class="cart-count">{{ cartText }}</text>
         <text class="cart-hint">点此查看清单</text>
@@ -161,6 +172,7 @@
               <text class="sheet-note">{{ line.extra }}</text>
             </view>
             <text v-if="line.countText" class="added-times">{{ line.countText }}</text>
+            <view v-if="line.canRemove" class="sheet-remove" @tap="onRemoveAdded(line.itemId)">移除</view>
           </view>
         </scroll-view>
         <text class="added-close" @tap="showAdded = false">继续加菜</text>
@@ -202,10 +214,19 @@
             </view>
           </view>
         </view>
-        <button class="cart-btn detail-action" :disabled="detailView.actionOff" @tap="onDetailAction">
+        <button id="detail-add" class="cart-btn detail-action" :disabled="detailView.actionOff" @tap="onDetailAction">
           {{ detailView.actionText }}
         </button>
         <text class="added-close" @tap="closeDetail">关闭</text>
+      </view>
+    </view>
+
+    <view v-for="ball in flyers" :key="ball.id" class="flyer" :style="ball.track">
+      <view class="flyer-hop" :style="ball.hop">
+        <view class="flyer-scale" :style="ball.scale">
+          <image v-if="ball.cover" class="flyer-img" :src="ball.cover" mode="aspectFill" />
+          <view v-else class="flyer-img flyer-plain" />
+        </view>
       </view>
     </view>
   </view>
@@ -213,16 +234,15 @@
 
 <script setup lang="ts">
 import { onShow } from '@dcloudio/uni-app'
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, getCurrentInstance, nextTick, reactive, ref, watch } from 'vue'
 import type { ActivityItem, Dish, DishCategory } from '@our-pact/shared'
-import { addActivityItems, createActivity, getActivity } from '@/api/activity'
+import { addActivityItems, createActivity, deleteActivityItem, getActivity } from '@/api/activity'
 import type { ActivityItemPayload } from '@/api/activity'
 import { listCategories, listDishes } from '@/api/menu'
-import BrandNav from '@/components/BrandNav.vue'
 import DateTimeField from '@/components/DateTimeField.vue'
 import PageLoading from '@/components/PageLoading.vue'
 import ShopIntro from '@/components/ShopIntro.vue'
-import { absoluteUrl } from '@/config'
+import { absoluteUrl, MENU_HERO_URL } from '@/config'
 import { useAuthStore } from '@/stores/auth'
 import {
   DEFAULT_ACTIVITY_LOCATION,
@@ -272,6 +292,26 @@ function textOr(value: unknown, fallback: string): string {
 }
 
 const auth = useAuthStore()
+const page = getCurrentInstance()
+
+interface FlyPoint {
+  left: number
+  top: number
+  width: number
+  height: number
+}
+
+interface Flyer {
+  id: number
+  cover: string
+  track: Record<string, string>
+  hop: Record<string, string>
+  scale: Record<string, string>
+}
+
+const flyers = ref<Flyer[]>([])
+let flyerSeq = 0
+let bumpTimer = 0
 const dishes = ref<Dish[]>([])
 const categories = ref<DishCategory[]>([])
 const activeCategoryId = ref(0)
@@ -301,16 +341,23 @@ const selected = reactive<Record<number, boolean>>({})
 const optionPicks = reactive<Record<number, OptionPickMap>>({})
 const paneHeight = ref(480)
 const cartBarBottom = ref(66)
-const shopHeight = ref(0)
+const listBump = ref(false)
+const tabBarHeight = ref(90)
 const showShop = ref(false)
+const shopIntroOn = ref(true)
 /** 预览图片也会触发 onShow，这次不要把介绍弹层关掉，也不要重载菜单。 */
 const retainShopSheet = ref(false)
 const PENDING_KEY = 'our-pact.pending-activity'
 const loadingText = '加载中'
-const stageStyle = computed(() => ({ height: `${paneHeight.value}px` }))
+const activeCategoryTitle = computed(() => {
+  const current = categories.value.find((item) => item.id === activeCategoryId.value)
+  return current?.name || ''
+})
+const paneStyle = computed(() => ({ height: `${paneHeight.value}px` }))
 const dishStyle = computed(() => {
   const banner = pendingActivity.value ? 42 : 0
-  return { height: `${Math.max(paneHeight.value - shopHeight.value - banner, 120)}px` }
+  const heading = activeCategoryTitle.value ? 36 : 0
+  return { height: `${Math.max(paneHeight.value - banner - heading, 120)}px` }
 })
 const menuReady = computed(() => !loading.value && !loadError.value && !emptyMenuText.value)
 const cartBarStyle = computed(() => ({ bottom: `${cartBarBottom.value}px` }))
@@ -333,6 +380,10 @@ const cartText = computed(() => {
   }
   return `已选 ${selectedCount.value} 道`
 })
+const pageStyle = computed(() => {
+  const cart = cartText.value && !showList.value ? 58 : 0
+  return { paddingBottom: `${tabBarHeight.value + cart}px` }
+})
 const dishPaneSkin = computed(() => (addingBar.value ? 'dish-pane roomy' : 'dish-pane'))
 const showAddedFab = computed(() => Boolean(addingBar.value) && !showAdded.value && !showList.value)
 const addedBadge = computed(() => {
@@ -349,13 +400,16 @@ const addedSummary = computed(() => {
 const emptyAddedText = computed(() => (addedItems.value.length ? '' : '点右边的加号，菜会出现在这里'))
 const addedLines = computed(() => {
   const me = auth.profile?.id
-  const groups = new Map<string, { title: string; extra: string; coverSrc: string; count: number }>()
+  const groups = new Map<string, { title: string; extra: string; coverSrc: string; count: number; itemId: number }>()
   for (const item of addedItems.value) {
     const dishId = item.dishId == null ? 0 : item.dishId
     const key = `${dishId}-${item.addedByUserId}`
     const current = groups.get(key)
     if (current) {
       current.count += 1
+      if (me != null && item.addedByUserId === me) {
+        current.itemId = item.id
+      }
       continue
     }
     const menuDish = dishes.value.find((entry) => entry.id === dishId)
@@ -366,6 +420,7 @@ const addedLines = computed(() => {
       extra: who,
       coverSrc: cover ? absoluteUrl(cover) : '',
       count: 1,
+      itemId: me != null && item.addedByUserId === me ? item.id : 0,
     })
   }
   return [...groups.entries()].map(([id, line]) => ({
@@ -375,6 +430,8 @@ const addedLines = computed(() => {
     coverSrc: line.coverSrc,
     showCover: Boolean(line.coverSrc),
     countText: line.count > 1 ? `×${line.count}` : '',
+    canRemove: line.itemId > 0,
+    itemId: line.itemId,
   }))
 })
 const sheetTitle = computed(() => {
@@ -550,8 +607,17 @@ function buildItemPayload(dishId: number): ActivityItemPayload {
   return options.length ? { dishId, options } : { dishId }
 }
 
+let menuLoading = false
+
 async function load() {
-  loading.value = true
+  if (menuLoading) {
+    return
+  }
+  menuLoading = true
+  const first = dishes.value.length === 0 && categories.value.length === 0
+  if (first) {
+    loading.value = true
+  }
   loadError.value = ''
   try {
     await auth.ensureLogin()
@@ -574,25 +640,35 @@ async function load() {
     loadError.value = error instanceof Error ? error.message : '加载菜单失败'
   } finally {
     loading.value = false
+    menuLoading = false
+    updatePaneHeight()
   }
 }
 
-/** 页面本身不能滚动，否则自定义 tabBar 会被顶上去。左侧分类通栏，右侧再扣掉店铺介绍。 */
+/** 页面本身不能滚动，否则自定义 tabBar 会被顶上去。厨房通栏在上，下面剩多少高度给分类和菜品。 */
 function updatePaneHeight() {
-  const { windowHeight, statusBarHeight, navBarHeight, tabBarHeight } = readWindowMetrics()
-  cartBarBottom.value = tabBarHeight + 10
-  const cart = cartText.value && !showList.value ? 58 : 0
-  paneHeight.value = Math.max(
-    windowHeight - statusBarHeight - navBarHeight - tabBarHeight - cart,
-    200,
-  )
+  const metrics = readWindowMetrics()
+  tabBarHeight.value = metrics.tabBarHeight
+  cartBarBottom.value = metrics.tabBarHeight + 10
+  nextTick(() => {
+    const query = uni.createSelectorQuery()
+    if (page?.proxy) {
+      query.in(page.proxy as never)
+    }
+    query
+      .select('.stage')
+      .boundingClientRect((result) => {
+        const rect = Array.isArray(result) ? result[0] : result
+        const height = rect?.height || 0
+        if (height > 0) {
+          paneHeight.value = height
+        }
+      })
+      .exec()
+  })
 }
 
-function onShopLayout(height: number) {
-  if (height === shopHeight.value) {
-    return
-  }
-  shopHeight.value = height
+function onShopLayout() {
   updatePaneHeight()
 }
 
@@ -630,25 +706,29 @@ function onDetailAction() {
     return
   }
   if (pendingActivity.value) {
-    void onPlus(dishId)
+    void onPlus(dishId, measure('#detail-add'))
     return
   }
   const dish = dishes.value.find((entry) => entry.id === dishId)
   if (selected[dishId]) {
     delete selected[dishId]
-  } else {
-    if (dish) {
-      ensureOptionPicks(dish)
-    }
-    selected[dishId] = true
+    updatePaneHeight()
+    return
   }
+  if (dish) {
+    ensureOptionPicks(dish)
+  }
+  const origin = measure('#detail-add')
+  selected[dishId] = true
   updatePaneHeight()
+  void origin.then((point) => landInList(dishId, point))
 }
 
 /** 列表上的添加按钮：不打开详情，直接选上或加到活动。 */
 function onQuickAdd(dishId: number) {
+  const origin = measure(`#plus-${dishId}`)
   if (pendingActivity.value) {
-    void onPlus(dishId)
+    void onPlus(dishId, origin)
     return
   }
   if (selected[dishId]) {
@@ -661,7 +741,133 @@ function onQuickAdd(dishId: number) {
   }
   selected[dishId] = true
   updatePaneHeight()
-  uni.showToast({ title: '已选上', icon: 'success' })
+  void origin.then((point) => landInList(dishId, point))
+}
+
+function measure(selector: string) {
+  return new Promise<FlyPoint | null>((resolve) => {
+    let settled = false
+    const finish = (point: FlyPoint | null) => {
+      if (settled) {
+        return
+      }
+      settled = true
+      resolve(point)
+    }
+    setTimeout(() => finish(null), 400)
+    const query = uni.createSelectorQuery()
+    if (page?.proxy) {
+      query.in(page.proxy as never)
+    }
+    query
+      .select(selector)
+      .boundingClientRect((result) => {
+        const rect = Array.isArray(result) ? result[0] : result
+        if (!rect?.width || !rect.height) {
+          finish(null)
+          return
+        }
+        finish({
+          left: rect.left,
+          top: rect.top,
+          width: rect.width,
+          height: rect.height,
+        })
+      })
+      .exec()
+  })
+}
+
+function windowWidth() {
+  try {
+    const info = uni.getWindowInfo?.() as { windowWidth?: number } | undefined
+    if (info?.windowWidth) {
+      return info.windowWidth
+    }
+    return uni.getSystemInfoSync().windowWidth || 375
+  } catch {
+    return 375
+  }
+}
+
+/** 外层匀速横移，内层先上抛再落下，看起来是跳进清单。 */
+function flyIntoList(dishId: number, start: FlyPoint) {
+  const ball = 44
+  const toFab = Boolean(pendingActivity.value)
+  const x0 = start.left + start.width / 2 - ball / 2
+  const y0 = start.top + start.height / 2 - ball / 2
+  const x1 = toFab ? windowWidth() - 16 - 28 - ball / 2 : 26
+  const landCenter = readWindowMetrics().windowHeight - cartBarBottom.value - (toFab ? 28 : 26)
+  const y1 = landCenter - ball / 2
+  const dish = dishes.value.find((item) => item.id === dishId)
+  const cover = dish?.imageUrl && !failedCovers[dishId] ? absoluteUrl(dish.imageUrl) : ''
+  const id = ++flyerSeq
+  flyers.value = [
+    ...flyers.value,
+    {
+      id,
+      cover,
+      track: {
+        left: `${x0}px`,
+        top: `${y0}px`,
+        width: `${ball}px`,
+        height: `${ball}px`,
+        transform: 'translateX(0)',
+        transition: 'none',
+      },
+      hop: { transform: 'translateY(0)', transition: 'none' },
+      scale: { transform: 'scale(1)', transition: 'none' },
+    },
+  ]
+  void nextTick(() => {
+    setTimeout(() => {
+      flyers.value = flyers.value.map((item) => {
+        if (item.id !== id) {
+          return item
+        }
+        return {
+          ...item,
+          track: {
+            ...item.track,
+            transform: `translateX(${x1 - x0}px)`,
+            transition: 'transform 520ms linear',
+          },
+          hop: {
+            transform: `translateY(${y1 - y0}px)`,
+            transition: 'transform 520ms cubic-bezier(0.35, -0.55, 0.7, 1)',
+          },
+          scale: {
+            transform: 'scale(0.22)',
+            transition: 'transform 520ms ease-in',
+          },
+        }
+      })
+    }, 30)
+  })
+  setTimeout(() => {
+    flyers.value = flyers.value.filter((item) => item.id !== id)
+    bumpList()
+  }, 560)
+}
+
+function landInList(dishId: number, point: FlyPoint | null) {
+  detailId.value = 0
+  if (!point) {
+    uni.showToast({ title: pendingActivity.value ? '已加上' : '已选上', icon: 'success' })
+    return
+  }
+  flyIntoList(dishId, point)
+}
+
+function bumpList() {
+  listBump.value = false
+  clearTimeout(bumpTimer)
+  setTimeout(() => {
+    listBump.value = true
+    bumpTimer = setTimeout(() => {
+      listBump.value = false
+    }, 320) as unknown as number
+  }, 16)
 }
 
 function openCartSheet() {
@@ -760,7 +966,44 @@ async function loadAdded() {
   }
 }
 
-async function onPlus(dishId: number) {
+let removingAdded = false
+
+function onRemoveAdded(itemId: number) {
+  const pending = pendingActivity.value
+  if (!pending || !itemId || removingAdded) {
+    return
+  }
+  uni.showModal({
+    title: '移除这道菜',
+    content: '只会移除你自己加的菜',
+    success: (result) => {
+      if (!result.confirm) {
+        return
+      }
+      void removeAddedItem(pending.id, itemId)
+    },
+  })
+}
+
+async function removeAddedItem(activityId: number, itemId: number) {
+  if (removingAdded) {
+    return
+  }
+  removingAdded = true
+  try {
+    await auth.ensureLogin()
+    const activity = await deleteActivityItem(activityId, itemId)
+    if (pendingActivity.value?.id === activityId) {
+      rememberAdded(activity.items || [])
+    }
+  } catch (error) {
+    uni.showToast({ title: error instanceof Error ? error.message : '移除失败', icon: 'none' })
+  } finally {
+    removingAdded = false
+  }
+}
+
+async function onPlus(dishId: number, origin?: Promise<FlyPoint | null>) {
   if (!pendingActivity.value || addingDishId.value) {
     return
   }
@@ -772,12 +1015,13 @@ async function onPlus(dishId: number) {
   if (dish) {
     ensureOptionPicks(dish)
   }
+  const located = origin ?? measure(`#plus-${dishId}`)
   addingDishId.value = dishId
   try {
     await auth.ensureLogin()
     const activity = await addActivityItems(pendingActivity.value.id, [buildItemPayload(dishId)])
     rememberAdded(activity.items || [])
-    uni.showToast({ title: '已加上', icon: 'success' })
+    landInList(dishId, await located)
   } catch (error) {
     uni.showToast({ title: error instanceof Error ? error.message : '加菜失败', icon: 'none' })
   } finally {
@@ -905,8 +1149,60 @@ onShow(() => {
 <style scoped>
 .page {
   height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   box-sizing: border-box;
   background: #f7f5f0;
+}
+
+.hero {
+  height: 188px;
+  margin-bottom: -36px;
+  flex-shrink: 0;
+  background: #d7e6df;
+  overflow: hidden;
+}
+
+.hero-img {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.board {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  height: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: #fff;
+  border-radius: 22px 22px 0 0;
+}
+
+.menu-head {
+  flex-shrink: 0;
+  padding: 4px 16px 8px;
+}
+
+.menu-label {
+  font-size: 16px;
+  font-weight: 700;
+  color: #2c2a26;
+}
+
+.pane-title {
+  display: block;
+  height: 36px;
+  line-height: 36px;
+  padding: 0 12px;
+  flex-shrink: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #2c2a26;
 }
 
 .center {
@@ -923,6 +1219,9 @@ onShow(() => {
 }
 
 .stage {
+  flex: 1;
+  height: 0;
+  min-height: 0;
   display: flex;
   overflow: hidden;
 }
@@ -963,10 +1262,11 @@ onShow(() => {
 }
 
 .cat-side {
-  width: 88px;
+  width: 76px;
+  height: 100%;
   flex-shrink: 0;
-  background: #efeae2;
-  border-right: 1px solid #e5e1d8;
+  background: #fff;
+  border-right: 1px solid #f0eeea;
 }
 
 .cat-scroll {
@@ -974,16 +1274,16 @@ onShow(() => {
 }
 
 .cat-item {
-  padding: 16px 10px;
+  padding: 16px 8px;
   font-size: 13px;
-  color: #5c5852;
+  color: #8a8680;
   text-align: center;
   line-height: 1.35;
   position: relative;
 }
 
 .cat-item.active {
-  background: #f7f5f0;
+  background: #fff;
   color: #3d6f5c;
   font-weight: 700;
 }
@@ -992,8 +1292,8 @@ onShow(() => {
   content: '';
   position: absolute;
   left: 0;
-  top: 12px;
-  bottom: 12px;
+  top: 14px;
+  bottom: 14px;
   width: 3px;
   border-radius: 0 2px 2px 0;
   background: #5b8f7a;
@@ -1002,9 +1302,9 @@ onShow(() => {
 .dish-pane {
   flex: 1;
   min-width: 0;
-  padding: 10px;
+  padding: 0 4px 8px;
   box-sizing: border-box;
-  background: #f7f5f0;
+  background: #fff;
 }
 
 .dish-pane.roomy {
@@ -1013,10 +1313,10 @@ onShow(() => {
 
 .dish-card {
   position: relative;
-  background: #fffcf7;
-  border: 1px solid #e5e1d8;
-  border-radius: 12px;
-  margin-bottom: 8px;
+  background: #fff;
+  border: none;
+  border-radius: 0;
+  margin-bottom: 0;
   overflow: visible;
 }
 
@@ -1098,8 +1398,8 @@ onShow(() => {
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: #aed2f0;
-  color: #3f4951;
+  background: #5b8f7a;
+  color: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1110,11 +1410,11 @@ onShow(() => {
 }
 
 .plus.done {
-  background: #aed2f0;
+  background: #3d6f5c;
 }
 
 .plus-text {
-  color: #3f4951;
+  color: #fff;
   font-size: 20px;
   font-weight: 700;
   line-height: 1;
@@ -1131,9 +1431,12 @@ onShow(() => {
 
 .cover-wrap {
   position: relative;
-  width: 92px;
-  height: 92px;
+  width: 88px;
+  height: 88px;
+  margin: 10px 0 10px 10px;
   flex-shrink: 0;
+  border-radius: 12px;
+  overflow: hidden;
   background: #e8e2d8;
 }
 
@@ -1160,9 +1463,10 @@ onShow(() => {
 
 .dish-name {
   display: block;
-  font-size: 15px;
-  font-weight: 600;
+  font-size: 16px;
+  font-weight: 700;
   margin-bottom: 2px;
+  color: #2c2a26;
 }
 
 .dish-desc {
@@ -1348,6 +1652,45 @@ onShow(() => {
   border: none;
 }
 
+.cart-bar.bump,
+.added-fab.bump {
+  animation: list-bump 0.32s ease;
+}
+
+@keyframes list-bump {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.06); }
+  100% { transform: scale(1); }
+}
+
+.flyer {
+  position: fixed;
+  z-index: 1300;
+  pointer-events: none;
+}
+
+.flyer-hop,
+.flyer-scale {
+  width: 100%;
+  height: 100%;
+}
+
+.flyer-scale {
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 8px 18px rgba(44, 42, 38, 0.28);
+}
+
+.flyer-img {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.flyer-plain {
+  background: #5b8f7a;
+}
+
 .cart-bar {
   position: fixed;
   left: 12px;
@@ -1465,6 +1808,7 @@ onShow(() => {
   color: #b0654a;
   font-size: 13px;
   flex-shrink: 0;
+  padding: 8px 2px;
 }
 
 .field {

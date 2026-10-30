@@ -83,28 +83,26 @@
       <aside class="preview">
         <p class="preview-label">点菜页上的样子</p>
         <div v-if="preview.visible" class="phone">
-          <div class="phone-rail"><span>硬菜</span><span>热菜</span></div>
-          <div class="phone-col">
-            <div class="phone-card">
-              <img v-if="form.chefAvatarUrl" class="phone-avatar" :src="form.chefAvatarUrl" alt="" />
-              <i v-else-if="preview.showChef" class="phone-avatar">{{ preview.initial }}</i>
-              <div class="phone-copy">
-                <div class="phone-name">
-                  <template v-if="preview.chefName">
-                    <strong>{{ preview.chefName }}</strong>
-                    <em v-if="preview.chefTitle" class="role">{{ preview.chefTitle }}</em>
-                  </template>
-                  <strong v-else-if="preview.slogan">{{ preview.slogan }}</strong>
-                  <span v-else class="quiet">{{ preview.location ? '地址' : '介绍' }}</span>
-                </div>
-                <span v-if="preview.chefName && preview.slogan">{{ preview.slogan }}</span>
-                <span v-if="form.chefIntro.trim()" class="quiet">{{ form.chefIntro.trim() }}</span>
-                <span v-if="preview.location" class="quiet">{{ preview.location }}</span>
-                <span v-if="preview.extra" class="quiet">{{ preview.extra }}</span>
+          <div class="phone-hero" />
+          <div class="phone-card">
+            <img v-if="form.chefAvatarUrl" class="phone-avatar" :src="form.chefAvatarUrl" alt="" />
+            <i v-else-if="preview.showChef" class="phone-avatar">{{ preview.initial }}</i>
+            <div class="phone-copy">
+              <div class="phone-name">
+                <strong>{{ preview.chefName || preview.slogan || '饭否' }}</strong>
+                <span v-if="preview.tag" class="role">{{ preview.tag }}</span>
               </div>
+              <span v-if="preview.subtitle" class="quiet">{{ preview.subtitle }}</span>
+              <span v-if="preview.address" class="quiet">{{ preview.address }}</span>
             </div>
-            <p v-if="form.notice.trim()" class="phone-notice">今日 {{ form.notice.trim() }}</p>
-            <div class="phone-dish" />
+          </div>
+          <p class="phone-menu-label">菜单</p>
+          <div class="phone-menu">
+            <div class="phone-rail"><span>硬菜</span><span>热菜</span></div>
+            <div class="phone-col">
+              <p class="phone-cat">硬菜</p>
+              <div class="phone-dish" />
+            </div>
           </div>
         </div>
         <p v-else class="preview-empty">还是空的，小程序上先不显示。</p>
@@ -145,12 +143,18 @@ const preview = computed(() => {
   const visible = Boolean(
     slogan || location || openHours || seatsText || form.notice.trim() || form.coverUrl || showChef,
   )
+  const tag = chefName && chefTitle ? chefTitle : ''
+  const subtitle = chefName && slogan ? slogan : ''
+  const address = location && location !== subtitle ? location : ''
   return {
     slogan,
     location,
     extra,
     chefName,
     chefTitle,
+    tag,
+    subtitle,
+    address,
     showChef,
     visible,
     initial: (chefName || chefTitle || '厨').slice(0, 1),
@@ -318,20 +322,54 @@ onMounted(() => {
 
 .phone {
   display: flex;
+  flex-direction: column;
   margin-top: 10px;
-  height: 168px;
   border: 1px solid #e5e1d8;
   border-radius: 12px;
   overflow: hidden;
-  background: #f7f5f0;
+  background: #fff;
+}
+
+.phone-hero {
+  height: 84px;
+  margin-bottom: -18px;
+  background: #d7e6df url('https://aiyy.obs.cn-south-1.myhuaweicloud.com/template/bj.png') center / cover no-repeat;
+}
+
+.phone-menu-label,
+.phone-cat {
+  margin: 0;
+  font-weight: 700;
+  color: #2c2a26;
+}
+
+.phone-menu-label {
+  padding: 0 10px 6px;
+  font-size: 14px;
+}
+
+.phone-cat {
+  padding: 8px 10px 0;
+  font-size: 13px;
+}
+
+.phone-col {
+  flex: 1;
+  min-width: 0;
+}
+
+.phone-menu {
+  display: flex;
+  min-height: 96px;
+  border-top: 1px solid #efeae2;
 }
 
 .phone-rail {
   width: 52px;
   flex-shrink: 0;
-  padding: 12px 0;
-  background: #efeae2;
-  border-right: 1px solid #e5e1d8;
+  padding: 8px 0;
+  background: #fff;
+  border-right: 1px solid #f0eeea;
   color: #8a8680;
   font-size: 12px;
   text-align: center;
@@ -345,33 +383,32 @@ onMounted(() => {
 .phone-rail span:first-child {
   color: #3d6f5c;
   font-weight: 700;
-  background: #f7f5f0;
-}
-
-.phone-col {
-  flex: 1;
-  min-width: 0;
-  padding: 10px;
+  box-shadow: inset 3px 0 0 #5b8f7a;
 }
 
 .phone-card {
+  position: relative;
+  z-index: 1;
   display: flex;
   align-items: center;
   gap: 8px;
+  margin: 0 8px;
+  padding: 10px;
+  background: #fff;
+  border-radius: 14px 14px 0 0;
 }
 
 .phone-dish {
-  height: 64px;
-  margin-top: 10px;
-  border: 1px solid #e5e1d8;
+  height: 52px;
+  margin: 8px 10px 10px;
   border-radius: 10px;
-  background: #fffcf7;
+  background: #efeae2;
 }
 
 .phone-avatar {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
   object-fit: cover;
   background: #e6f0eb;
   flex-shrink: 0;
@@ -438,7 +475,7 @@ i.phone-avatar {
 }
 
 .phone-notice {
-  margin: 10px 0 0;
+  margin: 0 10px 8px 54px;
   padding: 6px 8px;
   border-radius: 8px;
   background: #e6f0eb;

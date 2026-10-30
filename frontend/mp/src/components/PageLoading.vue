@@ -1,5 +1,5 @@
 <template>
-  <view class="page-loading">
+  <view class="page-loading" :class="{ fill }">
     <view class="stage">
       <image class="logo" src="/static/ourLogo.png" mode="aspectFit" />
       <view class="ring" />
@@ -12,9 +12,12 @@
 withDefaults(
   defineProps<{
     tip?: string
+    /** 放进已限高的区域时撑满父级，不再用 60vh 把页面顶高。 */
+    fill?: boolean
   }>(),
   {
     tip: '加载中',
+    fill: false,
   },
 )
 </script>
@@ -52,6 +55,12 @@ withDefaults(
   border: 3px solid #dce9e1;
   border-top-color: #5b8f7a;
   animation: spin 0.9s linear infinite;
+}
+
+.page-loading.fill {
+  min-height: 0;
+  height: 100%;
+  flex: 1;
 }
 
 .tip {

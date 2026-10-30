@@ -5,6 +5,9 @@
  */
 export const API_BASE_URL = 'https://kivenlpp.cn/api'
 
+/** 点菜页顶部背景，直接用这张图。 */
+export const MENU_HERO_URL = 'https://aiyy.obs.cn-south-1.myhuaweicloud.com/template/bj.png'
+
 /** 「活动取消通知」订阅消息模板 id（模板编号 1104）。 */
 export const CANCEL_TEMPLATE_ID = 'px4ixul8SRHEkuCkC3bHmoS8o08waXztZsPrXf1A2KA'
 

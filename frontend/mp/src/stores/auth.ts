@@ -15,6 +15,8 @@ export const useAuthStore = defineStore('auth', () => {
   const isSuperAdmin = computed(() => Boolean(profile.value?.superAdmin))
   /** 进行中的登录。并发调用共用这一次，避免后到的请求拿不到新令牌。 */
   let pendingLogin: Promise<void> | null = null
+  /** 静默登录进行中。这时遇到 401 不能再等这次登录，否则会自己等自己。 */
+  let loginDepth = 0
 
   function wxLoginCode(): Promise<string> {
     return new Promise((resolve, reject) => {
@@ -38,12 +40,17 @@ export const useAuthStore = defineStore('auth', () => {
       return pendingLogin
     }
     pendingLogin = (async () => {
-      const code = await wxLoginCode()
-      const result = await wxappLogin(code)
-      setToken(result.token)
-      token.value = result.token
-      profile.value = await fetchCurrentUser()
-      loadedFor = result.token
+      loginDepth += 1
+      try {
+        const code = await wxLoginCode()
+        const result = await wxappLogin(code)
+        setToken(result.token)
+        token.value = result.token
+        profile.value = await fetchCurrentUser()
+        loadedFor = result.token
+      } finally {
+        loginDepth -= 1
+      }
     })().finally(() => {
       pendingLogin = null
     })
@@ -92,6 +99,9 @@ export const useAuthStore = defineStore('auth', () => {
     token.value = ''
     profile.value = null
     loadedFor = ''
+    if (loginDepth > 0) {
+      return
+    }
     await silentLogin()
   })
 

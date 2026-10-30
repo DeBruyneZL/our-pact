@@ -9,21 +9,22 @@
         @tap.stop="previewAvatar"
         @error="onAvatarError"
       />
-      <view v-else-if="view.showChef" class="avatar avatar-fallback">{{ view.chefInitial }}</view>
+      <view v-else class="avatar avatar-fallback">{{ view.chefInitial }}</view>
       <view class="who" @tap="openSheet">
         <view class="name-row">
-          <template v-if="view.chefName">
-            <text class="name">{{ view.chefName }}</text>
-            <text v-if="view.chefTitle" class="role">{{ view.chefTitle }}</text>
-          </template>
-          <text v-else-if="view.slogan" class="name">{{ view.slogan }}</text>
-          <text v-else-if="view.location" class="place-label">地址</text>
-          <text v-else class="place-label">介绍</text>
+          <view class="name-wrap">
+            <text class="name">{{ view.headline }}</text>
+          </view>
+          <view v-if="view.tag" class="role-tag">
+            <text class="role-tag-text">{{ view.tag }}</text>
+          </view>
         </view>
-        <text v-if="view.chefName && view.slogan" class="slogan">{{ view.slogan }}</text>
-        <text v-if="view.chefIntro" class="intro">{{ view.chefIntro }}</text>
-        <text v-if="view.location" class="place">{{ view.location }}</text>
-        <text v-if="view.extra" class="extra">{{ view.extra }}</text>
+        <view v-if="view.subtitle">
+          <text class="slogan">{{ view.subtitle }}</text>
+        </view>
+        <view v-if="view.address">
+          <text class="slogan">{{ view.address }}</text>
+        </view>
       </view>
     </view>
     <view v-if="view.visible && view.notice" class="notice" @tap="openSheet">
@@ -52,8 +53,14 @@
             />
             <view v-else-if="view.showChef" class="sheet-avatar avatar-fallback">{{ view.chefInitial }}</view>
             <view class="sheet-id">
-              <text class="sheet-title">{{ view.sheetTitle }}</text>
-              <text v-if="view.chefName && view.chefTitle" class="sheet-role">{{ view.chefTitle }}</text>
+              <view class="name-row">
+                <view class="name-wrap">
+                  <text class="sheet-title">{{ view.sheetTitle }}</text>
+                </view>
+                <view v-if="view.tag" class="role-tag">
+                  <text class="role-tag-text">{{ view.tag }}</text>
+                </view>
+              </view>
             </view>
           </view>
           <view v-if="view.location" class="fact">
@@ -111,8 +118,11 @@ let alive = true
 let loadingProfile = false
 let reportedHeight = -1
 
-function text(value?: string | null) {
-  return (value || '').trim()
+function text(value: unknown) {
+  if (typeof value !== 'string') {
+    return ''
+  }
+  return value.trim()
 }
 
 const view = computed(() => {
@@ -131,7 +141,11 @@ const view = computed(() => {
   const visible = Boolean(
     slogan || location || openHours || seatsText || notice || coverSrc || showChef,
   )
-  const chefInitial = (chefName || chefTitle || '厨').slice(0, 1)
+  const headline = chefName || slogan || '饭否'
+  const tag = chefName && chefTitle ? chefTitle : ''
+  const subtitle = chefName && slogan ? slogan : ''
+  const address = location && location !== subtitle ? location : ''
+  const chefInitial = (chefName || headline || '厨').slice(0, 1)
   return {
     slogan,
     location,
@@ -147,6 +161,10 @@ const view = computed(() => {
     showChef,
     visible,
     chefInitial,
+    headline,
+    tag,
+    subtitle,
+    address,
     sheetTitle: chefName || slogan || '饭否',
   }
 })
@@ -265,17 +283,17 @@ onUnmounted(() => {
 <style scoped>
 .shop {
   box-sizing: border-box;
+  flex-shrink: 0;
 }
 
 .shop.shown {
-  padding: 10px 10px 0;
+  padding: 16px 16px 8px;
 }
 
 .lead {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding-bottom: 8px;
+  gap: 12px;
 }
 
 .who {
@@ -285,15 +303,22 @@ onUnmounted(() => {
 
 .name-row {
   display: flex;
+  flex-direction: row;
   align-items: center;
-  gap: 6px;
   min-width: 0;
+  gap: 8px;
+}
+
+.name-wrap {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .name {
-  flex-shrink: 1;
-  min-width: 0;
-  font-size: 15px;
+  display: block;
+  font-size: 18px;
   font-weight: 700;
   color: #2c2a26;
   line-height: 1.3;
@@ -302,49 +327,38 @@ onUnmounted(() => {
   text-overflow: ellipsis;
 }
 
-.role {
+.role-tag {
   flex-shrink: 0;
-  padding: 0 6px;
-  height: 18px;
-  line-height: 18px;
+  height: 22px;
+  padding: 0 8px;
   border-radius: 999px;
   background: #e6f0eb;
+  display: flex;
+  align-items: center;
+}
+
+.role-tag-text {
   color: #3d6f5c;
-  font-size: 11px;
-  font-weight: 600;
-}
-
-.place-label {
-  flex-shrink: 0;
-  color: #8a8680;
   font-size: 12px;
-}
-
-.slogan,
-.intro,
-.place,
-.extra {
-  display: block;
-  margin-top: 2px;
-  line-height: 1.4;
+  font-weight: 600;
+  line-height: 22px;
 }
 
 .slogan {
-  color: #5c5852;
+  display: block;
+  margin-top: 4px;
+  color: #8a8680;
   font-size: 13px;
-}
-
-.intro,
-.place,
-.extra {
-  color: #9a958c;
-  font-size: 12px;
+  line-height: 1.4;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .avatar {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
   background: #e6f0eb;
   flex-shrink: 0;
 }
@@ -362,7 +376,7 @@ onUnmounted(() => {
   display: flex;
   align-items: flex-start;
   gap: 6px;
-  margin: 0 0 8px 44px;
+  margin-top: 10px;
   padding: 6px 8px;
   border-radius: 8px;
   background: #e6f0eb;
@@ -441,19 +455,9 @@ onUnmounted(() => {
   font-size: 18px;
   font-weight: 700;
   color: #2c2a26;
-}
-
-.sheet-role {
-  display: inline-block;
-  margin-top: 6px;
-  padding: 0 8px;
-  height: 20px;
-  line-height: 20px;
-  border-radius: 999px;
-  background: #e6f0eb;
-  color: #3d6f5c;
-  font-size: 12px;
-  font-weight: 600;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .fact {

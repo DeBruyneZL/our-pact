@@ -29,21 +29,18 @@
         </view>
         <text v-if="activity.replyNote" class="meta">答复：{{ activity.replyNote }}</text>
         <view class="share-row">
-          <button class="ghost" hover-class="none" open-type="share">发给好友</button>
-          <view class="share-end">
-            <button v-if="activity.canEdit && !editing" class="text-action inline-action" @tap="startEdit">修改活动</button>
-            <view
-              v-if="posterDishes.length"
-              class="poster-icon"
-              :class="{ busy: posterBusy }"
-              @tap="onMakePoster"
-            >
-              <view class="poster-frame">
-                <view class="poster-sun" />
-                <view class="poster-peak" />
-              </view>
-            </view>
-          </view>
+          <button v-if="activity.canEdit && !editing" class="text-action inline-action" @tap="startEdit">修改活动</button>
+          <button class="text-action inline-action" hover-class="none" open-type="share">邀请好友</button>
+          <button
+            v-if="posterDishes.length"
+            class="text-action inline-action"
+            :class="{ busy: posterBusy }"
+            hover-class="none"
+            :disabled="posterBusy"
+            @tap="onMakePoster"
+          >
+            保存菜单
+          </button>
         </view>
       </view>
 
@@ -1032,6 +1029,8 @@ onShareAppMessage(() => ({
 }
 
 .share-row {
+  justify-content: flex-end;
+  gap: 14px;
   margin-top: 10px;
 }
 
@@ -1273,7 +1272,6 @@ onShareAppMessage(() => ({
 }
 
 .primary,
-.ghost,
 .save-action {
   border-radius: 999px;
   font-size: 14px;
@@ -1283,8 +1281,7 @@ onShareAppMessage(() => ({
 .text-action::after,
 .save-action::after,
 .complete-action::after,
-.withdraw-action::after,
-.ghost::after {
+.withdraw-action::after {
   border: none;
 }
 
@@ -1368,66 +1365,8 @@ onShareAppMessage(() => ({
   color: #fff;
 }
 
-.ghost {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  height: 36px;
-  line-height: 36px;
-  padding: 0 16px;
-  background: #e6f0eb;
-  color: #3d6f5c;
-  margin: 0;
-}
-
-.share-end {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-left: auto;
-}
-
-.poster-icon {
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.poster-icon.busy {
+.share-row .busy {
   opacity: 0.4;
-}
-
-.poster-frame {
-  width: 18px;
-  height: 15px;
-  border: 1.5px solid #3d6f5c;
-  border-radius: 3px;
-  position: relative;
-  box-sizing: border-box;
-}
-
-.poster-sun {
-  position: absolute;
-  top: 2px;
-  right: 2px;
-  width: 3px;
-  height: 3px;
-  border-radius: 50%;
-  background: #3d6f5c;
-}
-
-.poster-peak {
-  position: absolute;
-  left: 3px;
-  bottom: 2px;
-  width: 0;
-  height: 0;
-  border-left: 4px solid transparent;
-  border-right: 4px solid transparent;
-  border-bottom: 5px solid #3d6f5c;
 }
 
 .poster-canvas {

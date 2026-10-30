@@ -48,6 +48,7 @@ function goMenu() {
 
 <style scoped>
 .brand-nav {
+  flex-shrink: 0;
   background: #fffcf7;
   border-bottom: 1px solid #efeae2;
 }
