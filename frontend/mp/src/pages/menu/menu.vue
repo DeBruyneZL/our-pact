@@ -1,6 +1,13 @@
 <template>
   <view class="page">
     <BrandNav />
+    <ShopIntro
+      :sheet="showShop"
+      @update:sheet="showShop = $event"
+      @layout="onShopLayout"
+      @preview="onShopPreview"
+      @preview-cancel="onShopPreviewCancel"
+    />
     <PageLoading v-if="loading" :tip="loadingText" />
     <view v-else-if="loadError" class="center">{{ loadError }}</view>
     <view v-else-if="emptyMenuText" class="center">{{ emptyMenuText }}</view>
@@ -211,6 +218,7 @@ import { listCategories, listDishes } from '@/api/menu'
 import BrandNav from '@/components/BrandNav.vue'
 import DateTimeField from '@/components/DateTimeField.vue'
 import PageLoading from '@/components/PageLoading.vue'
+import ShopIntro from '@/components/ShopIntro.vue'
 import { absoluteUrl } from '@/config'
 import { useAuthStore } from '@/stores/auth'
 import {
@@ -288,6 +296,10 @@ const selected = reactive<Record<number, boolean>>({})
 const optionPicks = reactive<Record<number, OptionPickMap>>({})
 const paneHeight = ref(480)
 const cartBarBottom = ref(66)
+const shopHeight = ref(0)
+const showShop = ref(false)
+/** 预览氛围图也会触发 onShow，这次不要把介绍弹层关掉。 */
+const retainShopSheet = ref(false)
 const PENDING_KEY = 'our-pact.pending-activity'
 const loadingText = '加载中'
 const paneStyle = computed(() => ({ height: `${paneHeight.value}px` }))
@@ -559,18 +571,32 @@ async function load() {
   }
 }
 
-/** scroll-view 必须有明确像素高度，否则在微信里会塌缩/把底栏顶上去。 */
+/** 页面本身不能滚动，否则自定义 tabBar 会被顶上去。高度要扣掉导航和店铺介绍。 */
 function updatePaneHeight() {
   const { windowHeight, statusBarHeight, navBarHeight, tabBarHeight } = readWindowMetrics()
-  const brandNav = statusBarHeight + navBarHeight
-  // 购物车条抬到自定义 tabBar（含底部安全区）之上，避免遮挡
   cartBarBottom.value = tabBarHeight + 10
   const banner = pendingActivity.value ? 42 : 0
   const cart = cartText.value && !showList.value ? 58 : 0
   paneHeight.value = Math.max(
-    windowHeight - brandNav - tabBarHeight - banner - cart,
+    windowHeight - statusBarHeight - navBarHeight - shopHeight.value - tabBarHeight - banner - cart,
     200,
   )
+}
+
+function onShopLayout(height: number) {
+  if (height === shopHeight.value) {
+    return
+  }
+  shopHeight.value = height
+  updatePaneHeight()
+}
+
+function onShopPreview() {
+  retainShopSheet.value = true
+}
+
+function onShopPreviewCancel() {
+  retainShopSheet.value = false
 }
 
 function onCoverError(dishId: number) {
@@ -783,8 +809,8 @@ function clearSelection() {
   updatePaneHeight()
 }
 
-watch([showList, showAdded, showDetail], () => {
-  setTabBarHidden(showList.value || showAdded.value || showDetail.value)
+watch([showList, showAdded, showDetail, showShop], () => {
+  setTabBarHidden(showList.value || showAdded.value || showDetail.value || showShop.value)
   updatePaneHeight()
 })
 
@@ -846,8 +872,15 @@ async function onAddToActivity() {
 
 onShow(() => {
   syncTabBar(0)
-  setTabBarHidden(false)
+  const retainSheet = retainShopSheet.value
+  retainShopSheet.value = false
+  if (retainSheet) {
+    setTabBarHidden(true)
+    return
+  }
+  showShop.value = false
   showList.value = false
+  setTabBarHidden(false)
   readPending()
   updatePaneHeight()
   if (!activityDate.value || activityDate.value < todayText()) {
@@ -861,7 +894,7 @@ onShow(() => {
 
 <style scoped>
 .page {
-  min-height: 100vh;
+  height: 100%;
   box-sizing: border-box;
   background: #f7f5f0;
 }
@@ -882,6 +915,7 @@ onShow(() => {
 .menu-wrap {
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .adding-bar {
@@ -1443,5 +1477,11 @@ onShow(() => {
 
 .continue-pick::after {
   border: none;
+}
+</style>
+
+<style>
+page {
+  height: 100%;
 }
 </style>

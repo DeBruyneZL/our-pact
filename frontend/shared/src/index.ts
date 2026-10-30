@@ -12,6 +12,7 @@ export {
 export type { ActivityPageQuery } from './api/activity'
 export { pactApi } from './api/pactMock'
 export { fileFromDataUrl, menuApi } from './api/menu'
+export { shopApi } from './api/shop'
 export {
   AVATAR_MAX_BYTES,
   PHONE_PATTERN,
@@ -44,4 +45,5 @@ export type {
   DishOptionGroup,
   DishOptionValue,
   GuestUser,
+  ShopProfile,
 } from './types/pact'

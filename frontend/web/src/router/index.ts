@@ -3,6 +3,7 @@ import { consumeHandoffToken, getToken } from '@our-pact/shared'
 import AppLayout from '@/layouts/AppLayout.vue'
 import LoginView from '@/views/LoginView.vue'
 import DishesView from '@/views/dishes/DishesView.vue'
+import ShopView from '@/views/shop/ShopView.vue'
 import ActivitiesView from '@/views/activities/ActivitiesView.vue'
 import NoticesView from '@/views/notices/NoticesView.vue'
 import UsersView from '@/views/users/UsersView.vue'
@@ -19,6 +20,7 @@ const router = createRouter({
       meta: { admin: true },
       children: [
         { path: '', redirect: { name: 'dishes' } },
+        { path: 'shop', name: 'shop', component: ShopView },
         { path: 'dishes', name: 'dishes', component: DishesView },
         { path: 'activities', name: 'activities', component: ActivitiesView },
         { path: 'notices', name: 'notices', component: NoticesView },

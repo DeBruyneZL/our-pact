@@ -4,7 +4,8 @@
       "path": "pages/menu/menu",
       "style": {
         "navigationStyle": "custom",
-        "navigationBarTitleText": "点菜"
+        "navigationBarTitleText": "点菜",
+        "disableScroll": true
       }
     },
     {

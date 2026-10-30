@@ -6,6 +6,7 @@
         <BrandLogo size="md" />
       </div>
       <el-menu :default-active="active" router>
+        <el-menu-item index="/shop">店铺介绍</el-menu-item>
         <el-menu-item index="/dishes">菜单维护</el-menu-item>
         <el-menu-item index="/activities">活动记录</el-menu-item>
         <el-menu-item index="/users">用户列表</el-menu-item>
@@ -31,6 +32,7 @@ const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
 const active = computed(() => {
+  if (route.path.startsWith('/shop')) return '/shop'
   if (route.path.startsWith('/dishes')) return '/dishes'
   if (route.path.startsWith('/activities')) return '/activities'
   if (route.path.startsWith('/users')) return '/users'

@@ -137,6 +137,19 @@ export interface ActivitySubmitItem {
   dishName?: string
 }
 
+export interface ShopProfile {
+  slogan: string
+  location: string
+  openHours: string
+  seatsText: string
+  notice: string
+  coverUrl: string | null
+  chefName: string
+  chefTitle: string
+  chefIntro: string
+  chefAvatarUrl: string | null
+}
+
 export interface AdminNotice {
   id: number
   type: 'withdrawn'
