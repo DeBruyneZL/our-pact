@@ -58,6 +58,9 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -82,6 +85,10 @@ public class ActivityServiceImpl implements ActivityService {
     private static final int MAX_ITEM_COUNT = 50;
 
     private static final int MAX_PHOTO_COUNT = 20;
+
+    private static final SecureRandom SHARE_CODE_RANDOM = new SecureRandom();
+
+    private static final char[] SHARE_CODE_HEX = "0123456789abcdef".toCharArray();
 
     private final ActivityMapper activityMapper;
 
@@ -168,7 +175,7 @@ public class ActivityServiceImpl implements ActivityService {
         } else {
             activity.setStatus(ActivityStatus.OPEN.getValue());
         }
-        activityMapper.insert(activity);
+        insertActivity(activity);
         if (request.getItems() != null && !request.getItems().isEmpty()) {
             saveItems(activity.getId(), userId, request.getItems());
         }
@@ -209,9 +216,12 @@ public class ActivityServiceImpl implements ActivityService {
     }
 
     @Override
-    public ActivityResponse detail(Long id) {
+    public ActivityResponse detail(Long id, String shareCode) {
         long userId = currentUserId();
-        requireActivity(id);
+        Activity activity = requireActivity(id);
+        if (!canView(activity, userId, shareCode)) {
+            throw new BusinessException("活动不存在");
+        }
         return loadDetail(id, userId);
     }
 
@@ -224,9 +234,10 @@ public class ActivityServiceImpl implements ActivityService {
         if (activity.getUserId().equals(userId) || isMember(activity, userId)) {
             return loadDetail(activity.getId(), userId);
         }
-        if (!canAcceptMember(activity)) {
-            throw new BusinessException(closedMessage(activity));
+        if (!shareCodeMatches(activity, request.getShareCode())) {
+            throw new BusinessException("活动不存在");
         }
+        requireActive(activity.getId());
         int peopleCount = normalizePeopleCount(request.getPeopleCount());
         ActivityParticipant participant = new ActivityParticipant();
         participant.setActivityId(activity.getId());
@@ -248,25 +259,24 @@ public class ActivityServiceImpl implements ActivityService {
     public ActivityResponse updatePeople(Long id, ActivityJoinRequest request) {
         long userId = currentUserId();
         Activity activity = requireActivity(id);
-        if (!canAcceptMember(activity)) {
-            throw new BusinessException(closedMessage(activity));
-        }
         int count = normalizePeopleCount(request.getPeopleCount());
-        if (activity.getUserId().equals(userId)) {
-            activityMapper.update(null, Wrappers.<Activity>lambdaUpdate()
-                    .eq(Activity::getId, id)
-                    .set(Activity::getPeopleCount, count));
+        if (!activity.getUserId().equals(userId)) {
+            ActivityParticipant participant = participantMapper.selectOne(Wrappers.<ActivityParticipant>lambdaQuery()
+                    .eq(ActivityParticipant::getActivityId, id)
+                    .eq(ActivityParticipant::getUserId, userId));
+            if (participant == null) {
+                throw new BusinessException("加入活动后才能改人数");
+            }
+            requireActive(id);
+            participantMapper.update(null, Wrappers.<ActivityParticipant>lambdaUpdate()
+                    .eq(ActivityParticipant::getId, participant.getId())
+                    .set(ActivityParticipant::getPeopleCount, count));
             return loadDetail(id, userId);
         }
-        ActivityParticipant participant = participantMapper.selectOne(Wrappers.<ActivityParticipant>lambdaQuery()
-                .eq(ActivityParticipant::getActivityId, id)
-                .eq(ActivityParticipant::getUserId, userId));
-        if (participant == null) {
-            throw new BusinessException("加入活动后才能改人数");
-        }
-        participantMapper.update(null, Wrappers.<ActivityParticipant>lambdaUpdate()
-                .eq(ActivityParticipant::getId, participant.getId())
-                .set(ActivityParticipant::getPeopleCount, count));
+        requireActive(id);
+        activityMapper.update(null, Wrappers.<Activity>lambdaUpdate()
+                .eq(Activity::getId, id)
+                .set(Activity::getPeopleCount, count));
         return loadDetail(id, userId);
     }
 
@@ -278,15 +288,13 @@ public class ActivityServiceImpl implements ActivityService {
         if (activity.getUserId().equals(userId)) {
             throw new BusinessException("发起人不能退出，只能取消活动");
         }
-        if (!canAcceptMember(activity)) {
-            throw new BusinessException(closedMessage(activity));
-        }
         ActivityParticipant participant = participantMapper.selectOne(Wrappers.<ActivityParticipant>lambdaQuery()
                 .eq(ActivityParticipant::getActivityId, id)
                 .eq(ActivityParticipant::getUserId, userId));
         if (participant == null) {
             throw new BusinessException("你还没有参加这个活动");
         }
+        requireActive(id);
         User leaver = userMapper.selectById(userId);
         String leaverName = displayName(leaver);
         removeUserItems(id, userId);
@@ -314,9 +322,15 @@ public class ActivityServiceImpl implements ActivityService {
         if (!activity.getUserId().equals(userId)) {
             throw new BusinessException("只有发起人可以修改活动");
         }
+        boolean admin = isAdmin(userId);
+        boolean open = ActivityStatus.OPEN.getValue().equals(activity.getStatus());
+        boolean replied = ActivityStatus.REPLIED.getValue().equals(activity.getStatus());
+        if (!open && !(admin && replied)) {
+            throw new BusinessException("确认后不能再修改活动");
+        }
         int changed = activityMapper.update(null, Wrappers.<Activity>lambdaUpdate()
                 .eq(Activity::getId, id)
-                .eq(Activity::getStatus, ActivityStatus.OPEN.getValue())
+                .eq(Activity::getStatus, activity.getStatus())
                 .set(Activity::getName, request.getName().trim())
                 .set(Activity::getScheduledAt, request.getScheduledAt())
                 .set(Activity::getLocation, request.getLocation().trim()));
@@ -335,16 +349,7 @@ public class ActivityServiceImpl implements ActivityService {
         if (!isMember(activity, userId)) {
             throw new BusinessException("加入活动后才能加菜");
         }
-        if (!canAcceptMember(activity)) {
-            throw new BusinessException(closedMessage(activity));
-        }
-        int changed = activityMapper.update(null, Wrappers.<Activity>lambdaUpdate()
-                .eq(Activity::getId, id)
-                .in(Activity::getStatus, ActivityStatus.OPEN.getValue(), ActivityStatus.REPLIED.getValue())
-                .set(Activity::getUpdateTime, LocalDateTime.now()));
-        if (changed == 0) {
-            throw new BusinessException("现在不能再加菜");
-        }
+        requireActive(id);
         int current = itemService.lockCount(id);
         if (current + request.getItems().size() > MAX_ITEM_COUNT) {
             throw new BusinessException("这个活动的菜已经够多了");
@@ -357,10 +362,6 @@ public class ActivityServiceImpl implements ActivityService {
     @Transactional(rollbackFor = Throwable.class)
     public ActivityResponse deleteItem(Long id, Long itemId) {
         long userId = currentUserId();
-        Activity activity = requireActivity(id);
-        if (!canAcceptMember(activity)) {
-            throw new BusinessException(closedMessage(activity));
-        }
         ActivityItem item = itemService.getById(itemId);
         if (item == null || !id.equals(item.getActivityId())) {
             throw new BusinessException("这道菜不在活动里");
@@ -368,6 +369,7 @@ public class ActivityServiceImpl implements ActivityService {
         if (!Objects.equals(item.getAddedByUserId(), userId)) {
             throw new BusinessException("只能删除自己加的菜");
         }
+        requireActive(id);
         optionMapper.delete(Wrappers.<ActivityItemOption>lambdaQuery().eq(ActivityItemOption::getItemId, itemId));
         itemService.removeById(itemId);
         return loadDetail(id, userId);
@@ -769,6 +771,7 @@ public class ActivityServiceImpl implements ActivityService {
         response.setUserName(displayName(users.get(activity.getUserId())));
         response.setScheduledAt(activity.getScheduledAt());
         response.setLocation(activity.getLocation());
+        response.setShareCode(activity.getShareCode());
         response.setPeopleCount(peopleCount(activity.getPeopleCount()));
         response.setTotalPeople(totalPeople(activity, participants));
         response.setStatus(activity.getStatus());
@@ -784,7 +787,7 @@ public class ActivityServiceImpl implements ActivityService {
         response.setMyPeopleCount(member ? myPeople : null);
         response.setOwner(owner);
         response.setCanAdd(member && active);
-        response.setCanEdit(owner && open);
+        response.setCanEdit(owner && (open || (replied && admin)));
         response.setCanWithdraw(owner && active);
         // 待确认未答复前不能点「确认已参加」，答复后才可
         response.setCanComplete(owner && replied);
@@ -911,6 +914,64 @@ public class ActivityServiceImpl implements ActivityService {
         return responses;
     }
 
+    /** 写入分享码并插入。分享码冲突时换一个再试。 */
+    private void insertActivity(Activity activity) {
+        DuplicateKeyException lastConflict = null;
+        for (int attempt = 0; attempt < 3; attempt++) {
+            activity.setId(null);
+            activity.setShareCode(newShareCode());
+            try {
+                activityMapper.insert(activity);
+                return;
+            } catch (DuplicateKeyException exception) {
+                lastConflict = exception;
+            }
+        }
+        log.warn("活动分享码冲突：{}", lastConflict == null ? "" : lastConflict.getMessage());
+        throw new BusinessException("发起活动失败，请重试");
+    }
+
+    private String newShareCode() {
+        byte[] bytes = new byte[16];
+        SHARE_CODE_RANDOM.nextBytes(bytes);
+        char[] chars = new char[bytes.length * 2];
+        for (int i = 0; i < bytes.length; i++) {
+            int value = bytes[i] & 0xff;
+            chars[i * 2] = SHARE_CODE_HEX[value >>> 4];
+            chars[i * 2 + 1] = SHARE_CODE_HEX[value & 0x0f];
+        }
+        return new String(chars);
+    }
+
+    /** 参与人、超级管理员，或分享码正确的人可以看。对外不区分不存在和无权。 */
+    private boolean canView(Activity activity, long userId, String shareCode) {
+        return isAdmin(userId) || isMember(activity, userId) || shareCodeMatches(activity, shareCode);
+    }
+
+    private boolean shareCodeMatches(Activity activity, String raw) {
+        if (raw == null || activity.getShareCode() == null) {
+            return false;
+        }
+        String given = raw.trim();
+        if (given.length() != activity.getShareCode().length()) {
+            return false;
+        }
+        return MessageDigest.isEqual(
+                given.getBytes(StandardCharsets.UTF_8),
+                activity.getShareCode().getBytes(StandardCharsets.UTF_8));
+    }
+
+    /** 进行中的活动锁住当前行，避免和完成、取消抢状态。 */
+    private void requireActive(Long id) {
+        int changed = activityMapper.update(null, Wrappers.<Activity>lambdaUpdate()
+                .eq(Activity::getId, id)
+                .in(Activity::getStatus, ActivityStatus.OPEN.getValue(), ActivityStatus.REPLIED.getValue())
+                .set(Activity::getUpdateTime, LocalDateTime.now()));
+        if (changed == 0) {
+            throw new BusinessException(closedMessage(requireActivity(id)));
+        }
+    }
+
     private Activity requireActivity(Long id) {
         Activity activity = activityMapper.selectById(id);
         if (activity == null) {
@@ -927,11 +988,6 @@ public class ActivityServiceImpl implements ActivityService {
                 .eq(ActivityParticipant::getActivityId, activity.getId())
                 .eq(ActivityParticipant::getUserId, userId));
         return count != null && count > 0;
-    }
-
-    private boolean canAcceptMember(Activity activity) {
-        return ActivityStatus.OPEN.getValue().equals(activity.getStatus())
-                || ActivityStatus.REPLIED.getValue().equals(activity.getStatus());
     }
 
     private String closedMessage(Activity activity) {

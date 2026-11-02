@@ -25,6 +25,9 @@ public class ActivityResponse {
 
     private String location;
 
+    /** 分享码。能看到活动的人可以继续转发。 */
+    private String shareCode;
+
     /** 发起人一方人数 */
     private Integer peopleCount;
 

@@ -23,6 +23,8 @@ import com.kiven.lpp.ourpact.menu.service.DishService;
 import com.kiven.lpp.ourpact.menu.service.MenuAccess;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.ArrayList;
@@ -92,9 +94,11 @@ public class DishServiceImpl extends ServiceImpl<DishMapper, Dish> implements Di
             throw new BusinessException("菜品不存在");
         }
         requireCategory(request.getCategoryId());
+        String previousImage = dish.getImageName();
         fill(dish, request);
         updateById(dish);
         replaceOptions(id, request.getOptionGroups());
+        deleteImageAfterCommit(previousImage, dish.getImageName());
         return requireResponse(id);
     }
 
@@ -106,6 +110,7 @@ public class DishServiceImpl extends ServiceImpl<DishMapper, Dish> implements Di
         if (dish == null) {
             throw new BusinessException("菜品不存在");
         }
+        String imageName = dish.getImageName();
         List<Long> groupIds = groupService.list(Wrappers.<DishOptionGroup>lambdaQuery()
                         .eq(DishOptionGroup::getDishId, id))
                 .stream()
@@ -116,7 +121,7 @@ public class DishServiceImpl extends ServiceImpl<DishMapper, Dish> implements Di
             groupService.removeByIds(groupIds);
         }
         removeById(id);
-        imageStorage.delete(dish.getImageName());
+        deleteImageAfterCommit(imageName, null);
     }
 
     @Override
@@ -132,22 +137,35 @@ public class DishServiceImpl extends ServiceImpl<DishMapper, Dish> implements Di
         dish.setSortOrder(request.getSortOrder() == null ? 0 : request.getSortOrder());
         dish.setIsActive(Boolean.FALSE.equals(request.getIsActive()) ? YesNo.NO.getValue() : YesNo.YES.getValue());
         dish.setAllowRepeat(Boolean.TRUE.equals(request.getAllowRepeat()) ? YesNo.YES.getValue() : YesNo.NO.getValue());
-        dish.setImageName(resolveImage(dish.getImageName(), request.getImageUrl()));
+        dish.setImageName(storedImageName(request.getImageUrl()));
     }
 
-    private String resolveImage(String currentName, String imageUrl) {
+    /** 只校验路径。旧文件等事务提交成功后再删，避免回滚后图片丢失。 */
+    private String storedImageName(String imageUrl) {
         if (imageUrl == null || imageUrl.isBlank()) {
-            imageStorage.delete(currentName);
             return null;
         }
         String name = imageStorage.storedName(imageUrl.trim());
         if (name == null) {
             throw new BusinessException("菜品图片无效，请重新上传");
         }
-        if (currentName != null && !currentName.equals(name)) {
-            imageStorage.delete(currentName);
-        }
         return name;
+    }
+
+    private void deleteImageAfterCommit(String previous, String current) {
+        if (previous == null || previous.equals(current)) {
+            return;
+        }
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            imageStorage.delete(previous);
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                imageStorage.delete(previous);
+            }
+        });
     }
 
     private void requireCategory(Long categoryId) {

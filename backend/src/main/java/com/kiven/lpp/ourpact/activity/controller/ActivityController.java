@@ -80,8 +80,8 @@ public class ActivityController {
     }
 
     @GetMapping("/{id}")
-    public Result<ActivityResponse> detail(@PathVariable Long id) {
-        return Result.success(activityService.detail(id));
+    public Result<ActivityResponse> detail(@PathVariable Long id, @RequestParam(required = false) String code) {
+        return Result.success(activityService.detail(id, code));
     }
 
     @PostMapping("/{id}/update")

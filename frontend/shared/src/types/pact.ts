@@ -105,6 +105,8 @@ export interface Activity {
   userName: string
   scheduledAt: string
   location: string
+  /** 分享码。打开分享卡片时带上，未参加的人凭它查看和加入。 */
+  shareCode?: string
   peopleCount: number
   totalPeople: number
   status: ActivityStatus

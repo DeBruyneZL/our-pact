@@ -4,6 +4,11 @@ set -euo pipefail
 
 cd "$(dirname "$0")"
 
+if [ -z "${MYSQL_PASSWORD:-}" ]; then
+  echo "请先设置环境变量 MYSQL_PASSWORD" >&2
+  exit 1
+fi
+
 if docker ps -a --format '{{.Names}}' | grep -qx 'our-pact-mysql'; then
   echo "容器 our-pact-mysql 已存在。若要重建，请先执行: docker rm -f our-pact-mysql"
   exit 1
@@ -17,7 +22,7 @@ docker run -d \
   -v ./docker/mysql-init:/docker-entrypoint-initdb.d \
   --memory=512m \
   --memory-swap=1g \
-  -e MYSQL_ROOT_PASSWORD=ourpact123 \
+  -e MYSQL_ROOT_PASSWORD="$MYSQL_PASSWORD" \
   -e MYSQL_DATABASE=our_pact_db \
   -e TZ=Asia/Shanghai \
   mysql:5.7 \
@@ -25,5 +30,5 @@ docker run -d \
   --character-set-server=utf8mb4 \
   --collation-server=utf8mb4_unicode_ci
 
-echo "MySQL 5.7 已启动：端口 3306，数据库 our_pact_db，root 密码 ourpact123"
+echo "MySQL 5.7 已启动：端口 3306，数据库 our_pact_db。root 密码来自环境变量 MYSQL_PASSWORD。"
 echo "表结构由后端启动时的 Flyway 执行。"

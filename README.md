@@ -33,7 +33,7 @@ our-pact/
 
 ### 1. 准备数据库
 
-先用下面的独立容器部署 MySQL，或在本机 MySQL 中建好库 `our_pact_db`。账号 `root`，密码 `ourpact123`。服务和数据库在同一台机器时，`application.yml` 默认连接 `127.0.0.1:3306`。表结构不靠手工导入，后端启动时由 Flyway 执行 `backend/src/main/resources/db/migration/`。
+先用下面的独立容器部署 MySQL，或在本机 MySQL 中建好库 `our_pact_db`。账号 `root`。启动前设置环境变量 `MYSQL_PASSWORD`，值与 MySQL root 密码一致；`application.yml` 不再写默认口令。服务和数据库在同一台机器时，默认连接 `127.0.0.1:3306`。表结构不靠手工导入，后端启动时由 Flyway 执行 `backend/src/main/resources/db/migration/`。
 
 ### 2. 启动后端
 
@@ -105,7 +105,7 @@ docker compose up -d --build
 - 头像、菜品图、活动照片分别在宿主机 `/data/our-pact/avatars`、`/data/our-pact/dishes`、`/data/our-pact/activities`，挂进后端容器同一路径。`network_mode: host` 不影响这些卷。重建容器不会删这些目录；删掉项目源码目录（如 `our-pact-main/`）也不会影响它们
 - 小程序登录读 `WX_APP_ID`、`WX_APP_SECRET`。在项目根目录建 `.env`（已被 git 忽略）写入这两项，再 `docker compose up -d`。只改环境变量不用 `--build`
 
-数据库不在本机时，再通过环境变量 `MYSQL_HOST`、`MYSQL_PORT` 覆盖。
+数据库口令通过环境变量 `MYSQL_PASSWORD` 传入，不要写进仓库。数据库不在本机时，再通过 `MYSQL_HOST`、`MYSQL_PORT` 覆盖。`.env` 里已有微信配置时，补上 `MYSQL_PASSWORD` 后再执行 `docker compose up -d`。
 
 ## 2G 内存服务器注意事项
 

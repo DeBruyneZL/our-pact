@@ -196,6 +196,10 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                     .set(User::getNickname, nickname)
                     .set(User::getPhone, phone));
         } catch (DuplicateKeyException exception) {
+            String text = exception.getMostSpecificCause().getMessage();
+            if (text != null && text.contains("uk_nickname")) {
+                throw new BusinessException("这个昵称已经有人用了");
+            }
             throw new BusinessException("手机号已被使用");
         }
         User latest = getById(userId);
@@ -270,11 +274,19 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         if (user.getId() == null || !DEFAULT_NICKNAME.equals(user.getNickname())) {
             return;
         }
-        String nickname = nextDefaultNickname(user.getId());
-        update(Wrappers.<User>lambdaUpdate()
-                .eq(User::getId, user.getId())
-                .set(User::getNickname, nickname));
-        user.setNickname(nickname);
+        for (int attempt = 0; attempt < 3; attempt++) {
+            String nickname = nextDefaultNickname(user.getId());
+            try {
+                update(Wrappers.<User>lambdaUpdate()
+                        .eq(User::getId, user.getId())
+                        .set(User::getNickname, nickname));
+                user.setNickname(nickname);
+                return;
+            } catch (DuplicateKeyException exception) {
+                // 并发下名字被占用，换一个再试
+            }
+        }
+        throw new BusinessException("这个昵称已经有人用了");
     }
 
     /** 优先「微信用户」加编号；这个名字已被占用时再补四位随机数。 */

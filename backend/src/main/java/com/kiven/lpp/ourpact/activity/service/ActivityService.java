@@ -36,9 +36,9 @@ public interface ActivityService {
     PageResult<ActivityResponse> managePage(ActivityPageQuery query);
 
     /**
-     * 登录用户查看活动。未加入的人也可以看，用来从分享卡片进入后再参加。
+     * 查看活动。参与人、超级管理员，或持有分享码的人可以看。
      */
-    ActivityResponse detail(Long id);
+    ActivityResponse detail(Long id, String shareCode);
 
     /**
      * 确认参加并填写人数。已撤回或已完成不能加入。
@@ -56,7 +56,7 @@ public interface ActivityService {
     ActivityResponse leave(Long id);
 
     /**
-     * 发起人在答复前修改名称、时间和地点。
+     * 发起人在待确认时修改名称、时间和地点。管理员自己发起的活动，确认后仍可改。
      */
     ActivityResponse update(Long id, ActivityUpdateRequest request);
 

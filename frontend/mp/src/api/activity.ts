@@ -38,12 +38,13 @@ export function createActivity(payload: ActivitySavePayload): Promise<Activity> 
   return http.post<Activity>('/activity', payload)
 }
 
-export function getActivity(id: number): Promise<Activity> {
-  return http.get<Activity>(`/activity/${id}`)
+export function getActivity(id: number, shareCode?: string): Promise<Activity> {
+  const code = shareCode ? `?code=${encodeURIComponent(shareCode)}` : ''
+  return http.get<Activity>(`/activity/${id}${code}`)
 }
 
-export function joinActivity(id: number, peopleCount: number): Promise<Activity> {
-  return http.post<Activity>(`/activity/${id}/join`, { peopleCount })
+export function joinActivity(id: number, peopleCount: number, shareCode?: string): Promise<Activity> {
+  return http.post<Activity>(`/activity/${id}/join`, { peopleCount, shareCode: shareCode || undefined })
 }
 
 export function updateActivityPeople(id: number, peopleCount: number): Promise<Activity> {

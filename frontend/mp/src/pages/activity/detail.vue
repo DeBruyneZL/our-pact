@@ -266,6 +266,7 @@ const joinPeopleLabel = computed(() => peopleOptions[joinIndex.value] || '1人')
 const myPeopleLabel = computed(() => peopleOptions[myPeopleIndex.value] || '1人')
 const editAutoName = ref('')
 let activityId = 0
+let shareCode = ''
 
 interface DishCard {
   id: number
@@ -502,7 +503,7 @@ async function load() {
   try {
     await auth.ensureLogin()
     await auth.loadProfile()
-    activity.value = await getActivity(activityId)
+    activity.value = await getActivity(activityId, shareCode)
     fillEdit(activity.value)
     syncMyPeopleIndex(activity.value)
     requestOwnerLeaveSubscribe(activity.value)
@@ -673,7 +674,11 @@ async function onJoin() {
   }
   requestCancelSubscribe()
   try {
-    activity.value = await joinActivity(activity.value.id, peopleCountOf(joinIndex.value))
+    activity.value = await joinActivity(
+      activity.value.id,
+      peopleCountOf(joinIndex.value),
+      activity.value.shareCode || shareCode,
+    )
     uni.showToast({ title: '已确认参加', icon: 'success' })
   } catch (error) {
     uni.showToast({ title: error instanceof Error ? error.message : '加入失败', icon: 'none' })
@@ -890,6 +895,7 @@ function enableShare() {
 
 onLoad((query) => {
   activityId = Number(query?.id) || 0
+  shareCode = typeof query?.code === 'string' ? query.code : ''
   enableShare()
 })
 
@@ -902,10 +908,16 @@ onShow(() => {
   void load()
 })
 
-onShareAppMessage(() => ({
-  title: activity.value ? `${activity.value.name}，来加道菜` : '来加道菜',
-  path: activity.value ? `/pages/activity/detail?id=${activity.value.id}` : '/pages/activity/activity',
-}))
+onShareAppMessage(() => {
+  const current = activity.value
+  const code = current?.shareCode || shareCode
+  const id = current?.id || activityId
+  const query = code ? `&code=${code}` : ''
+  return {
+    title: current ? `${current.name}，来加道菜` : '来加道菜',
+    path: id ? `/pages/activity/detail?id=${id}${query}` : '/pages/activity/activity',
+  }
+})
 </script>
 
 <style scoped>

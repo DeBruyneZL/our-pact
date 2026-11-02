@@ -23,6 +23,9 @@ public class Activity extends BaseEntity {
 
     private String location;
 
+    /** 分享进入活动的凭证，不可猜测 */
+    private String shareCode;
+
     private Long userId;
 
     /** 发起人一方人数 */
