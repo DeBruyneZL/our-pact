@@ -363,18 +363,18 @@ function onExport() {
 }
 
 .lg.rest {
-  background: #fde8e8;
-  color: #c0392b;
-}
-
-.lg.ok {
   background: #e5f6ea;
   color: #1f7a45;
 }
 
-.lg.no {
+.lg.ok {
   background: #e8eef5;
-  color: #3a5f8a;
+  color: #2f6fed;
+}
+
+.lg.no {
+  background: #fde8e8;
+  color: #c0392b;
 }
 
 .lg.unknown {
@@ -428,15 +428,18 @@ function onExport() {
 }
 
 .day-cell.res-rest {
-  background: #fff5f5;
+  background: #f3fbf6;
+  border-color: #b7e0c4;
 }
 
 .day-cell.res-ok {
-  background: #f3fbf6;
+  background: #f0f5ff;
+  border-color: #b8c9f5;
 }
 
 .day-cell.res-no {
-  background: #f5f8fc;
+  background: #fff5f5;
+  border-color: #f0b8b8;
 }
 
 .day-cell.res-unknown {
@@ -471,15 +474,15 @@ function onExport() {
 }
 
 .res-rest .day-result {
-  color: #c0392b;
-}
-
-.res-ok .day-result {
   color: #1f7a45;
 }
 
+.res-ok .day-result {
+  color: #2f6fed;
+}
+
 .res-no .day-result {
-  color: #3a5f8a;
+  color: #c0392b;
 }
 
 .day-shifts {
