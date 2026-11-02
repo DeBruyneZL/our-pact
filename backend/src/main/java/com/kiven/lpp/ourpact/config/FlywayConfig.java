@@ -7,6 +7,9 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 import javax.sql.DataSource;
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.sql.Statement;
 
 /**
  * 启动时执行数据库迁移。使用 Flyway 7.15，社区版可以连 MySQL 5.7。
@@ -32,7 +35,23 @@ public class FlywayConfig {
                 .baselineVersion(baselineVersion)
                 .encoding("UTF-8")
                 .load();
+        clearFailedMigrations(dataSource);
         flyway.migrate();
         return flyway;
+    }
+
+    /**
+     * 失败的版本会挡住后续启动。删掉失败记录后，用当前脚本重新执行。
+     * 首次建库还没有历史表，忽略「表不存在」。
+     */
+    private void clearFailedMigrations(DataSource dataSource) {
+        try (Connection connection = dataSource.getConnection();
+             Statement statement = connection.createStatement()) {
+            statement.executeUpdate("DELETE FROM flyway_schema_history WHERE success = 0");
+        } catch (SQLException exception) {
+            if (exception.getErrorCode() != 1146) {
+                throw new IllegalStateException("清理失败的迁移记录失败", exception);
+            }
+        }
     }
 }
