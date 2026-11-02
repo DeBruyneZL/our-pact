@@ -8,6 +8,7 @@ import ActivitiesView from '@/views/activities/ActivitiesView.vue'
 import NoticesView from '@/views/notices/NoticesView.vue'
 import UsersView from '@/views/users/UsersView.vue'
 import ProfileView from '@/views/ProfileView.vue'
+import ScheduleTrialView from '@/views/schedule/ScheduleTrialView.vue'
 import { useAuthStore } from '@/stores/auth'
 
 const router = createRouter({
@@ -25,6 +26,7 @@ const router = createRouter({
         { path: 'activities', name: 'activities', component: ActivitiesView },
         { path: 'notices', name: 'notices', component: NoticesView },
         { path: 'users', name: 'users', component: UsersView },
+        { path: 'schedule-trial', name: 'schedule-trial', component: ScheduleTrialView },
         { path: 'profile', name: 'profile', component: ProfileView },
         { path: 'home', redirect: { name: 'dishes' } },
       ],

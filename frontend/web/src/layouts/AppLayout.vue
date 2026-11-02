@@ -11,6 +11,7 @@
         <RouterLink :class="{ active: route.name === 'activities' }" :to="{ name: 'activities' }">活动记录</RouterLink>
         <RouterLink :class="{ active: route.name === 'notices' }" :to="{ name: 'notices' }">消息记录</RouterLink>
         <RouterLink :class="{ active: route.name === 'users' }" :to="{ name: 'users' }">用户列表</RouterLink>
+        <RouterLink :class="{ active: route.name === 'schedule-trial' }" :to="{ name: 'schedule-trial' }">日程试算</RouterLink>
       </nav>
       <div v-if="auth.profile" class="sidebar-foot">
         <el-dropdown trigger="click" placement="top-start" @command="onCommand">
