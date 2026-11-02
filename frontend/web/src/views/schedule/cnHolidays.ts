@@ -1,9 +1,10 @@
 /**
- * 中国大陆法定节假日（放假日）静态表，按 YYYY-MM-DD。
- * 覆盖近年导入排班常见年份；不含调休上班日。
+ * 中国大陆法定休息日：国务院放假日 + 法定双休（周六日），并排除调休补班日。
  *
  * @author zhangliang
  */
+
+/** 法定节假日放假日（含调休放假落到周末的日期） */
 const HOLIDAYS: ReadonlySet<string> = new Set([
   // 2024
   '2024-01-01',
@@ -125,7 +126,81 @@ const HOLIDAYS: ReadonlySet<string> = new Set([
   '2027-10-07',
 ])
 
-/** 是否法定节假日（放假日） */
-export function isCnHoliday(dateKey: string): boolean {
+/** 调休补班日（周末需上班，不算法定双休） */
+const MAKEUP_WORKDAYS: ReadonlySet<string> = new Set([
+  // 2024
+  '2024-02-04',
+  '2024-02-18',
+  '2024-04-07',
+  '2024-04-28',
+  '2024-05-11',
+  '2024-09-14',
+  '2024-09-29',
+  '2024-10-12',
+  // 2025
+  '2025-01-26',
+  '2025-02-08',
+  '2025-04-27',
+  '2025-09-28',
+  '2025-10-11',
+  // 2026（国务院假期安排常见补班）
+  '2026-01-04',
+  '2026-02-14',
+  '2026-02-28',
+  '2026-05-09',
+  '2026-09-20',
+  '2026-10-10',
+  // 2027（预留常见补班，不含已列入放假日的周末）
+  '2027-02-20',
+  '2027-04-11',
+  '2027-05-08',
+  '2027-10-09',
+])
+
+function parseDateKey(dateKey: string): Date | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateKey)
+  if (!m) {
+    return null
+  }
+  const year = Number(m[1])
+  const month = Number(m[2])
+  const day = Number(m[3])
+  const date = new Date(year, month - 1, day)
+  if (
+    date.getFullYear() !== year ||
+    date.getMonth() !== month - 1 ||
+    date.getDate() !== day
+  ) {
+    return null
+  }
+  return date
+}
+
+/** 是否周六或周日 */
+export function isWeekend(dateKey: string): boolean {
+  const date = parseDateKey(dateKey)
+  if (!date) {
+    return false
+  }
+  const weekDay = date.getDay()
+  return weekDay === 0 || weekDay === 6
+}
+
+/** 是否国务院公布的法定节假日放假日 */
+export function isCnPublicHoliday(dateKey: string): boolean {
   return HOLIDAYS.has(dateKey)
+}
+
+/**
+ * 是否法定休息日：放假日，或法定双休（周六日且非调休补班）。
+ * 日历角标「假」用此判断。
+ */
+export function isCnHoliday(dateKey: string): boolean {
+  if (HOLIDAYS.has(dateKey)) {
+    return true
+  }
+  if (MAKEUP_WORKDAYS.has(dateKey)) {
+    return false
+  }
+  return isWeekend(dateKey)
 }

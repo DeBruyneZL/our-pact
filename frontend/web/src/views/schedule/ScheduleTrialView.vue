@@ -68,7 +68,7 @@
     <div class="toolbar">
       <el-button type="primary" :loading="parsing" :disabled="!canTrial" @click="onTrial">试算</el-button>
       <div class="legend">
-        <span class="lg holiday">假 · 法定节假日</span>
+        <span class="lg holiday">假 · 法定休息日（节假日/双休）</span>
         <span class="lg rest">休 · 共同休息</span>
         <span class="lg ok">可约</span>
         <span class="lg no">不可约</span>

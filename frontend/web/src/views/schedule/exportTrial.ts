@@ -12,7 +12,7 @@ export function exportTrialExcel(trial: TrialResult): void {
     [`${trial.nameA}班次`]: d.shiftA.raw || '-',
     [`${trial.nameB}班次`]: d.shiftB.raw || '-',
     结果: meetupResultLabel(d.result),
-    法定节假日: d.holiday ? '是' : '否',
+    法定休息日: d.holiday ? '是' : '否',
     共同休息日: d.commonRest ? '是' : '否',
   }))
 
