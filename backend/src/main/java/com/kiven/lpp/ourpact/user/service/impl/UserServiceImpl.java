@@ -184,6 +184,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             }
         }
         String nickname = request.getNickname().trim();
+        if (isPlaceholderNickname(nickname)) {
+            throw new BusinessException("请换一个昵称");
+        }
         User occupiedName = getOne(Wrappers.<User>lambdaQuery()
                 .eq(User::getNickname, nickname)
                 .ne(User::getId, userId), false);
@@ -234,6 +237,23 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         return toProfile(latest);
     }
 
+    @Override
+    public void requireCompletedProfile(Long userId) {
+        User user = requireUser(userId);
+        boolean nicknameReady = !isPlaceholderNickname(user.getNickname());
+        boolean avatarReady = user.getAvatar() != null && !user.getAvatar().isBlank();
+        if (nicknameReady && avatarReady) {
+            return;
+        }
+        if (!nicknameReady && !avatarReady) {
+            throw new BusinessException("请先完善头像和昵称");
+        }
+        if (!avatarReady) {
+            throw new BusinessException("请先上传头像");
+        }
+        throw new BusinessException("请先修改昵称");
+    }
+
     /**
      * 已是 BCrypt 时直接比对。历史明文匹配成功后立刻改写成哈希。
      */
@@ -265,6 +285,16 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
     private User findByOpenid(String openid) {
         return getOne(Wrappers.<User>lambdaQuery().eq(User::getWxOpenid, openid), false);
+    }
+
+    /**
+     * 还没改过的默认昵称：空，或仍以「微信用户」开头。
+     */
+    private boolean isPlaceholderNickname(String nickname) {
+        if (nickname == null || nickname.isBlank()) {
+            return true;
+        }
+        return nickname.trim().startsWith(DEFAULT_NICKNAME);
     }
 
     /**

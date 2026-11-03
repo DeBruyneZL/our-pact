@@ -58,6 +58,11 @@ public interface UserService extends IService<User> {
     UserProfileResponse updateProfile(Long userId, ProfileUpdateRequest request);
 
     /**
+     * 头像和昵称都改过才能发起、加入、点菜等操作。未改完时抛出业务异常。
+     */
+    void requireCompletedProfile(Long userId);
+
+    /**
      * 替换当前用户头像，并删掉上一张。
      */
     UserProfileResponse updateAvatar(Long userId, MultipartFile file);

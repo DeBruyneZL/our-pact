@@ -15,11 +15,21 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 @Configuration
 public class SaTokenConfigure implements WebMvcConfigurer {
 
+    private final ProfileCompleteInterceptor profileCompleteInterceptor;
+
+    public SaTokenConfigure(ProfileCompleteInterceptor profileCompleteInterceptor) {
+        this.profileCompleteInterceptor = profileCompleteInterceptor;
+    }
+
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(new SaInterceptor(handle -> SaRouter.match("/api/**")
                         .notMatch("/api/auth/login", "/api/auth/wxapp", "/api/files/avatars/**", "/api/files/dishes/**", "/api/files/activities/**", "/api/files/shop/**")
                         .check(r -> StpUtil.checkLogin())))
-                .addPathPatterns("/**");
+                .addPathPatterns("/**")
+                .order(0);
+        registry.addInterceptor(profileCompleteInterceptor)
+                .addPathPatterns("/api/activity", "/api/activity/**")
+                .order(1);
     }
 }
