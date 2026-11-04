@@ -121,9 +121,9 @@
     </view>
 
     <view v-if="showList" class="mask" @tap="showList = false">
-      <view class="sheet" @tap.stop>
+      <view class="sheet" :class="{ 'sheet-create': createMode }" @tap.stop>
         <text class="sheet-title">{{ sheetTitle }}</text>
-        <scroll-view scroll-y class="sheet-list">
+        <scroll-view scroll-y class="sheet-list" :class="{ 'sheet-list-create': createMode }">
           <view v-for="item in selectedList" :key="item.id" class="sheet-item">
             <view class="sheet-main">
               <text class="sheet-name">{{ item.title }}</text>
@@ -1770,6 +1770,16 @@ onShow(() => {
 .sheet-list {
   max-height: 45vh;
   margin-bottom: 12px;
+}
+
+/* 发起活动时菜品区固定高度，多选时在区内滚动，表单和提交按钮留在下面 */
+.sheet-create {
+  max-height: calc(100vh - 12px);
+}
+
+.sheet-list-create {
+  height: 420rpx;
+  flex: none;
 }
 
 .sheet-item {
