@@ -20,9 +20,11 @@
     <el-table :data="activities" v-loading="loading" stripe>
       <el-table-column label="活动" min-width="180">
         <template #default="{ row }">
-          <strong>{{ row.name }}</strong>
-          <div class="muted">{{ row.userName }} · {{ formatDateTime(row.scheduledAt) }}</div>
-          <div class="muted">{{ row.location }}</div>
+          <div class="activity-cell">
+            <strong>{{ row.name }}</strong>
+            <div class="muted">{{ row.userName }} · {{ formatDateTime(row.scheduledAt) }}</div>
+            <div class="muted">{{ row.location }}</div>
+          </div>
         </template>
       </el-table-column>
       <el-table-column label="参与人" width="100">
@@ -59,7 +61,7 @@
       </el-table-column>
       <el-table-column label="答复" min-width="140">
         <template #default="{ row }">
-          <span v-if="row.replyNote">{{ row.replyNote }}</span>
+          <span v-if="row.replyNote" class="break-text">{{ row.replyNote }}</span>
           <span v-else class="muted">—</span>
         </template>
       </el-table-column>
@@ -348,8 +350,27 @@ onMounted(load)
   font-weight: 600;
 }
 
+.activity-cell,
+.break-text,
+.person-top strong,
+.dish-title,
+.dish-options,
+.dish-adder span {
+  overflow-wrap: anywhere;
+}
+
+.activity-cell {
+  min-width: 0;
+  max-width: 100%;
+}
+
+:deep(.el-table .cell) {
+  overflow-wrap: anywhere;
+}
+
 .person-grid {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 10px;
 }
 
@@ -357,6 +378,8 @@ onMounted(load)
   display: flex;
   align-items: center;
   gap: 14px;
+  min-width: 0;
+  overflow: hidden;
   padding: 14px;
   border: 1px solid #e5e1d8;
   border-radius: 14px;
@@ -370,13 +393,20 @@ onMounted(load)
 
 .person-top {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 8px;
+  min-width: 0;
 }
 
 .person-top strong {
+  min-width: 0;
   font-size: 15px;
+  line-height: 1.45;
   color: #2f2c28;
+}
+
+.person-top :deep(.el-tag) {
+  flex-shrink: 0;
 }
 
 .person-meta {
@@ -442,6 +472,10 @@ onMounted(load)
   margin-top: 12px;
   color: #8a8680;
   font-size: 12px;
+}
+
+.dish-adder span {
+  min-width: 0;
 }
 
 @media (max-width: 720px) {
