@@ -38,6 +38,14 @@ export function createActivity(payload: ActivitySavePayload): Promise<Activity> 
   return http.post<Activity>('/activity', payload)
 }
 
+export const OWN_OPEN_ACTIVITY_MESSAGE = '已有待确认的活动，请先撤回后再发起'
+
+/** 自己发起的待确认活动还在时为 true。只看第一页，提交时后端仍会拦住。 */
+export async function hasOwnOpenActivity(): Promise<boolean> {
+  const page = await pageMyActivities(1, 20, 'open')
+  return (page.list || []).some((item) => item.owner && item.status === 'open')
+}
+
 export function getActivity(id: number, shareCode?: string): Promise<Activity> {
   const code = shareCode ? `?code=${encodeURIComponent(shareCode)}` : ''
   return http.get<Activity>(`/activity/${id}${code}`)
@@ -63,6 +71,11 @@ export function pageManageActivities(pageNum: number, pageSize: number, status?:
 /** 管理员答复待确认活动。 */
 export function replyActivity(id: number, replyNote: string): Promise<Activity> {
   return http.post<Activity>(`/activity/${id}/reply`, { replyNote })
+}
+
+/** 管理员驳回待确认活动。 */
+export function rejectActivity(id: number): Promise<Activity> {
+  return http.post<Activity>(`/activity/${id}/reject`)
 }
 
 export function updateActivity(id: number, payload: ActivityUpdatePayload): Promise<Activity> {

@@ -1,5 +1,5 @@
-/** open 待确认，可分享、可加菜、发起人可改；replied 待参加，不能改名称时间和地点，仍可加菜和取消；withdrawn 已取消；completed 已完成，可上传手机先吃的照片 */
-export type ActivityStatus = 'open' | 'replied' | 'withdrawn' | 'completed'
+/** open 待确认，可分享、可加菜、发起人可改；replied 待参加，不能改名称时间和地点，仍可加菜和取消；withdrawn 已取消；rejected 管理员驳回；completed 已完成，可上传手机先吃的照片 */
+export type ActivityStatus = 'open' | 'replied' | 'withdrawn' | 'rejected' | 'completed'
 
 export interface DishCategory {
   id: number

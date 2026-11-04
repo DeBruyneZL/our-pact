@@ -33,7 +33,7 @@
           </view>
           <text class="meta">{{ row.when }}</text>
           <text class="meta">{{ row.summary }}</text>
-          <text v-if="row.showConfirm" class="confirm-hint">点进去可直接确认</text>
+          <text v-if="row.showConfirm" class="confirm-hint">点进去可确认或驳回</text>
         </view>
         <view v-if="loadingMore" class="more">加载中</view>
         <view v-else-if="noMore" class="more">没有更多了</view>
@@ -66,11 +66,12 @@
 import { onReachBottom, onShow } from '@dcloudio/uni-app'
 import { computed, ref } from 'vue'
 import { activityStatusLabel, type Activity, type ActivityStatus } from '@our-pact/shared'
-import { createActivity, pageManageActivities, pageMyActivities } from '@/api/activity'
+import { createActivity, hasOwnOpenActivity, OWN_OPEN_ACTIVITY_MESSAGE, pageManageActivities, pageMyActivities } from '@/api/activity'
 import BrandNav from '@/components/BrandNav.vue'
 import DateTimeField from '@/components/DateTimeField.vue'
 import PageLoading from '@/components/PageLoading.vue'
 import { CREATE_TEMPLATE_ID } from '@/config'
+import { requestCancelSubscribe } from '@/utils/subscribe'
 import { useAuthStore } from '@/stores/auth'
 import {
   DEFAULT_ACTIVITY_LOCATION,
@@ -165,7 +166,13 @@ function statusLabel(status: ActivityStatus) {
 }
 
 function statusClass(status: ActivityStatus) {
-  return { open: 'open', replied: 'replied', withdrawn: 'withdrawn', completed: 'completed' }[status]
+  return {
+    open: 'open',
+    replied: 'replied',
+    withdrawn: 'withdrawn',
+    rejected: 'rejected',
+    completed: 'completed',
+  }[status]
 }
 
 function formatWhen(value: string) {
@@ -180,7 +187,15 @@ function syncAutoName(dateText: string) {
   autoName.value = next
 }
 
-function openCreate() {
+async function openCreate() {
+  try {
+    if (await hasOwnOpenActivity()) {
+      uni.showToast({ title: OWN_OPEN_ACTIVITY_MESSAGE, icon: 'none' })
+      return
+    }
+  } catch {
+    // 查询失败不拦，提交时后端仍会校验
+  }
   if (!activityDate.value || activityDate.value < minDate.value) {
     activityDate.value = minDate.value
   }
@@ -317,6 +332,10 @@ function requestAdminCreateSubscribe() {
 }
 
 function openDetail(id: number) {
+  const current = activities.value.find((item) => item.id === id)
+  if (current?.owner && current.status === 'open') {
+    requestCancelSubscribe()
+  }
   uni.navigateTo({ url: `/pages/activity/detail?id=${id}` })
 }
 
@@ -343,6 +362,9 @@ async function onCreate() {
   } catch (error) {
     uni.showToast({ title: error instanceof Error ? error.message : '时间无效', icon: 'none' })
     return
+  }
+  if (!auth.isSuperAdmin) {
+    requestCancelSubscribe()
   }
   submitting.value = true
   try {
@@ -556,9 +578,15 @@ onReachBottom(() => {
   color: #4a6f94;
 }
 
-.status.withdrawn {
+.status.withdrawn,
+.status.rejected {
   background: #f0ece6;
   color: #9a958c;
+}
+
+.card.rejected {
+  border-color: #e4dfd6;
+  background: #f4f1eb;
 }
 
 .status.completed {

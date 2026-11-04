@@ -18,7 +18,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 活动相关微信订阅消息：撤回推参与人、退出推发起人。
+ * 活动相关微信订阅消息：撤回推参与人、驳回推发起人、退出推发起人。
  * 接收方需先在小程序里点过订阅授权；没授权的跳过。
  *
  * @author zhangliang
@@ -71,15 +71,35 @@ public class ActivityCancelNotifier {
             return;
         }
         List<User> participants = userMapper.selectBatchIds(userIds);
-        // 模板「活动取消通知」1104：thing1 活动名称、date2 活动时间、thing13 发起人
+        Map<String, String> fields = cancelFields(activity, initiatorName);
+        String page = detailPage(activity);
+        for (User participant : participants) {
+            sendQuietly(participant, CANCEL_TEMPLATE_ID, page, fields, "撤回推送失败");
+        }
+    }
+
+    /**
+     * 管理员驳回后调用。用「活动取消通知」推给发起人；没授权的跳过。
+     *
+     * @param activity 已驳回的活动
+     * @param initiatorName 发起人显示名
+     */
+    public void notifyRejected(Activity activity, String initiatorName) {
+        User owner = userMapper.selectById(activity.getUserId());
+        sendQuietly(owner, CANCEL_TEMPLATE_ID, detailPage(activity), cancelFields(activity, initiatorName), "驳回推送失败");
+    }
+
+    /** 模板「活动取消通知」1104：thing1 活动名称、date2 活动时间、thing13 发起人。 */
+    private Map<String, String> cancelFields(Activity activity, String initiatorName) {
         Map<String, String> fields = new LinkedHashMap<>();
         fields.put("thing1", clip(activity.getName()));
         fields.put("date2", activity.getScheduledAt() == null ? "" : TIME_TEXT.format(activity.getScheduledAt()));
         fields.put("thing13", clip(initiatorName));
-        String page = "pages/activity/detail?id=" + activity.getId();
-        for (User participant : participants) {
-            sendQuietly(participant, CANCEL_TEMPLATE_ID, page, fields, "撤回推送失败");
-        }
+        return fields;
+    }
+
+    private String detailPage(Activity activity) {
+        return "pages/activity/detail?id=" + activity.getId();
     }
 
     /**
@@ -98,8 +118,7 @@ public class ActivityCancelNotifier {
         fields.put("thing5", clip(activity.getName()));
         fields.put("thing3", clip(leaverName));
         fields.put("time2", TIME_TEXT.format(LocalDateTime.now()));
-        String page = "pages/activity/detail?id=" + activity.getId();
-        sendQuietly(owner, LEAVE_TEMPLATE_ID, page, fields, "退出推送失败");
+        sendQuietly(owner, LEAVE_TEMPLATE_ID, detailPage(activity), fields, "退出推送失败");
     }
 
     private void sendQuietly(

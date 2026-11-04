@@ -21,7 +21,7 @@ import java.util.List;
 public interface ActivityService {
 
     /**
-     * 当前用户发起活动。
+     * 当前用户发起活动。已有自己发起的待确认活动时不能再发起，需先撤回。
      */
     ActivityResponse add(ActivitySaveRequest request);
 
@@ -84,6 +84,11 @@ public interface ActivityService {
      * 管理员答复。答复不是审批，也不挡住加菜。
      */
     ActivityResponse reply(Long id, ActivityReplyRequest request);
+
+    /**
+     * 管理员驳回待确认活动，并按活动取消模板通知发起人。
+     */
+    ActivityResponse reject(Long id);
 
     /**
      * 完成后，参与人上传一张照片。

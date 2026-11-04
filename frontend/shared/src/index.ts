@@ -7,6 +7,7 @@ export {
   listActivityNotices,
   pageManageActivities,
   readActivityNotice,
+  rejectActivity,
   replyActivity,
 } from './api/activity'
 export type { ActivityPageQuery } from './api/activity'

@@ -3,7 +3,7 @@
     <div class="head">
       <div>
         <h2>活动记录</h2>
-        <p>确认不是审批，不挡住分享和加菜。确认之后不能再改名称、时间、地点。自己加的菜仍可删除。发起人仍可取消。</p>
+        <p>确认不是审批，不挡住分享和加菜。确认之后不能再改名称、时间、地点。待确认的活动可以驳回，驳回后活动结束，并用活动取消通知告诉发起人。</p>
       </div>
     </div>
 
@@ -13,6 +13,7 @@
         <el-radio-button label="open">{{ activityStatusLabel('open') }}</el-radio-button>
         <el-radio-button label="replied">{{ activityStatusLabel('replied') }}</el-radio-button>
         <el-radio-button label="withdrawn">{{ activityStatusLabel('withdrawn') }}</el-radio-button>
+        <el-radio-button label="rejected">{{ activityStatusLabel('rejected') }}</el-radio-button>
         <el-radio-button label="completed">{{ activityStatusLabel('completed') }}</el-radio-button>
       </el-radio-group>
     </div>
@@ -65,9 +66,10 @@
           <span v-else class="muted">—</span>
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="140">
+      <el-table-column label="操作" width="180">
         <template #default="{ row }">
           <el-button v-if="row.status === 'open'" link type="primary" @click="onReply(row)">答复</el-button>
+          <el-button v-if="row.status === 'open'" link type="danger" @click="onReject(row)">驳回</el-button>
           <el-button link type="danger" @click="onDelete(row)">删除</el-button>
         </template>
       </el-table-column>
@@ -163,6 +165,7 @@ import {
   deleteActivity,
   formatDateTime,
   pageManageActivities,
+  rejectActivity,
   replyActivity,
   type Activity,
   type ActivityItem,
@@ -200,8 +203,9 @@ function statusType(status: ActivityStatus) {
     open: 'warning',
     replied: 'primary',
     withdrawn: 'info',
+    rejected: 'danger',
     completed: 'success',
-  }[status] as 'warning' | 'primary' | 'info' | 'success'
+  }[status] as 'warning' | 'primary' | 'info' | 'success' | 'danger'
 }
 
 function nameInitial(name?: string | null) {
@@ -278,6 +282,22 @@ async function onReply(row: Activity) {
   } catch (error) {
     if (error === 'cancel') return
     ElMessage.error(error instanceof Error ? error.message : '答复失败')
+  }
+}
+
+async function onReject(row: Activity) {
+  try {
+    await ElMessageBox.confirm(`驳回活动「${row.name}」？发起人会收到活动取消通知。`, '驳回活动', {
+      type: 'warning',
+      confirmButtonText: '驳回',
+      cancelButtonText: '取消',
+    })
+    await rejectActivity(row.id)
+    ElMessage.success('已驳回，并通知发起人')
+    await load()
+  } catch (error) {
+    if (error === 'cancel') return
+    ElMessage.error(error instanceof Error ? error.message : '驳回失败')
   }
 }
 

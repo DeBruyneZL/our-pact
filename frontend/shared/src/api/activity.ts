@@ -16,6 +16,11 @@ export function replyActivity(id: number, replyNote: string): Promise<Activity> 
   return http.post<Activity>(`/activity/${id}/reply`, { replyNote })
 }
 
+/** 管理员驳回待确认活动。 */
+export function rejectActivity(id: number): Promise<Activity> {
+  return http.post<Activity>(`/activity/${id}/reject`)
+}
+
 /** 管理员删除活动。 */
 export function deleteActivity(id: number): Promise<void> {
   return http.post<void>(`/activity/${id}/delete`)

@@ -5,6 +5,7 @@ const ACTIVITY_STATUS_LABEL: Record<ActivityStatus, string> = {
   open: '待确认',
   replied: '待参加',
   withdrawn: '已取消',
+  rejected: '已驳回',
   completed: '已完成',
 }
 

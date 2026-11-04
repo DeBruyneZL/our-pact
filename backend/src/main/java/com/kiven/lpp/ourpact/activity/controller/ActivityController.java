@@ -114,6 +114,11 @@ public class ActivityController {
         return Result.success(activityService.reply(id, request));
     }
 
+    @PostMapping("/{id}/reject")
+    public Result<ActivityResponse> reject(@PathVariable Long id) {
+        return Result.success(activityService.reject(id));
+    }
+
     @PostMapping("/{id}/photos")
     public Result<ActivityResponse> uploadPhoto(@PathVariable Long id, @RequestParam("file") MultipartFile file) {
         return Result.success(activityService.uploadPhoto(id, file));

@@ -236,7 +236,7 @@
 import { onShow } from '@dcloudio/uni-app'
 import { computed, getCurrentInstance, nextTick, reactive, ref, watch } from 'vue'
 import type { ActivityItem, Dish, DishCategory } from '@our-pact/shared'
-import { addActivityItems, createActivity, deleteActivityItem, getActivity } from '@/api/activity'
+import { addActivityItems, createActivity, deleteActivityItem, getActivity, hasOwnOpenActivity, OWN_OPEN_ACTIVITY_MESSAGE } from '@/api/activity'
 import type { ActivityItemPayload } from '@/api/activity'
 import { listCategories, listDishes } from '@/api/menu'
 import DateTimeField from '@/components/DateTimeField.vue'
@@ -244,6 +244,7 @@ import PageLoading from '@/components/PageLoading.vue'
 import ShopIntro from '@/components/ShopIntro.vue'
 import { absoluteUrl, MENU_HERO_URL } from '@/config'
 import { useAuthStore } from '@/stores/auth'
+import { requestCancelSubscribe } from '@/utils/subscribe'
 import {
   DEFAULT_ACTIVITY_LOCATION,
   PEOPLE_OPTIONS,
@@ -875,10 +876,18 @@ function openCartSheet() {
   showList.value = true
 }
 
-function openCreateFromCart() {
+async function openCreateFromCart() {
   if (selectedCount.value <= 0) {
     uni.showToast({ title: '先选几道菜', icon: 'none' })
     return
+  }
+  try {
+    if (await hasOwnOpenActivity()) {
+      uni.showToast({ title: OWN_OPEN_ACTIVITY_MESSAGE, icon: 'none' })
+      return
+    }
+  } catch {
+    // 查询失败不拦，提交时后端仍会校验
   }
   if (!activityDate.value || activityDate.value < todayText()) {
     activityDate.value = todayText()
@@ -1080,6 +1089,9 @@ async function onCreate() {
   } catch (error) {
     uni.showToast({ title: error instanceof Error ? error.message : '时间无效', icon: 'none' })
     return
+  }
+  if (!auth.isSuperAdmin) {
+    requestCancelSubscribe()
   }
   submitting.value = true
   try {

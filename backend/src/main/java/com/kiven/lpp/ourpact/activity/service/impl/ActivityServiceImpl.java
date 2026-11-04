@@ -74,7 +74,8 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
- * 活动规则：只能删自己加的菜；待确认和待参加都可以删。答复后不能改名称、时间和地点。撤回通知管理员。
+ * 活动规则：只能删自己加的菜；待确认和待参加都可以删。答复后不能再改名称、时间和地点。撤回通知管理员。驳回后通知发起人。
+ * 同一账号已有自己发起的待确认活动时不能再发起，需先撤回。
  *
  * @author zhangliang
  */
@@ -161,6 +162,7 @@ public class ActivityServiceImpl implements ActivityService {
     public ActivityResponse add(ActivitySaveRequest request) {
         long userId = currentUserId();
         User initiator = requireUniqueName(userId);
+        requireNoOpenActivity(userId);
         Activity activity = new Activity();
         activity.setName(resolveName(request.getName(), initiator, request.getScheduledAt()));
         activity.setScheduledAt(request.getScheduledAt());
@@ -450,6 +452,36 @@ public class ActivityServiceImpl implements ActivityService {
                 .set(Activity::getRepliedAt, LocalDateTime.now()));
         if (changed == 0) {
             throw new BusinessException("这个活动现在不能答复");
+        }
+        return loadDetail(id, userId);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Throwable.class)
+    public ActivityResponse reject(Long id) {
+        requireAdmin();
+        long userId = currentUserId();
+        Activity activity = requireActivity(id);
+        int changed = activityMapper.update(null, Wrappers.<Activity>lambdaUpdate()
+                .eq(Activity::getId, id)
+                .eq(Activity::getStatus, ActivityStatus.OPEN.getValue())
+                .set(Activity::getStatus, ActivityStatus.REJECTED.getValue()));
+        if (changed == 0) {
+            throw new BusinessException("这个活动现在不能驳回");
+        }
+        User initiator = userMapper.selectById(activity.getUserId());
+        String initiatorName = displayName(initiator);
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    try {
+                        cancelNotifier.notifyRejected(activity, initiatorName);
+                    } catch (Exception exception) {
+                        log.warn("驳回推送失败 activityId={}：{}", id, exception.getMessage());
+                    }
+                }
+            });
         }
         return loadDetail(id, userId);
     }
@@ -994,10 +1026,23 @@ public class ActivityServiceImpl implements ActivityService {
         if (ActivityStatus.WITHDRAWN.getValue().equals(activity.getStatus())) {
             return "活动已取消";
         }
+        if (ActivityStatus.REJECTED.getValue().equals(activity.getStatus())) {
+            return "活动已被驳回";
+        }
         if (ActivityStatus.COMPLETED.getValue().equals(activity.getStatus())) {
             return "活动已完成，不能再加入或加菜";
         }
         return "现在不能再加菜";
+    }
+
+    /** 自己发起的待确认活动还在时，不能再发起。 */
+    private void requireNoOpenActivity(long userId) {
+        Long count = activityMapper.selectCount(Wrappers.<Activity>lambdaQuery()
+                .eq(Activity::getUserId, userId)
+                .eq(Activity::getStatus, ActivityStatus.OPEN.getValue()));
+        if (count != null && count > 0) {
+            throw new BusinessException("已有待确认的活动，请先撤回后再发起");
+        }
     }
 
     /** 发起人唯一昵称校验，通过后把用户带回，给默认活动名用。 */

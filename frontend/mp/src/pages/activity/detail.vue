@@ -80,9 +80,10 @@
 
       <view v-if="activity.canReply" class="card reply-card">
         <text class="section">确认活动</text>
-        <text class="meta">确认后活动进入待参加，大家仍可继续加菜。</text>
+        <text class="meta">确认后活动进入待参加，大家仍可继续加菜。驳回后活动结束，并发取消通知给发起人。</text>
         <input v-model="replyNote" class="field" placeholder="可选：答复备注" placeholder-class="placeholder" />
-        <button class="primary" :disabled="replying" @tap="onReply">确认活动</button>
+        <button class="primary" :disabled="replying || rejecting" @tap="onReply">确认活动</button>
+        <button class="reject-action" :disabled="replying || rejecting" @tap="onReject">驳回活动</button>
       </view>
 
       <view v-if="activity.canEdit && editing" class="card">
@@ -215,6 +216,7 @@ import {
   getActivity,
   joinActivity,
   leaveActivity,
+  rejectActivity,
   replyActivity,
   updateActivity,
   updateActivityPeople,
@@ -225,6 +227,7 @@ import BrandNav from '@/components/BrandNav.vue'
 import DateTimeField from '@/components/DateTimeField.vue'
 import PageLoading from '@/components/PageLoading.vue'
 import { absoluteUrl, CANCEL_TEMPLATE_ID, LEAVE_TEMPLATE_ID } from '@/config'
+import { requestCancelSubscribe } from '@/utils/subscribe'
 import { getShopProfile } from '@/api/shop'
 import { useAuthStore } from '@/stores/auth'
 import {
@@ -258,6 +261,7 @@ const leaving = ref(false)
 const posterBusy = ref(false)
 const posterPath = ref('')
 const replying = ref(false)
+const rejecting = ref(false)
 const replyNote = ref('')
 const showPeople = ref(false)
 const peopleOptions = PEOPLE_OPTIONS
@@ -579,7 +583,7 @@ function onLeave() {
 }
 
 async function onReply() {
-  if (!activity.value || replying.value || !activity.value.canReply) {
+  if (!activity.value || replying.value || rejecting.value || !activity.value.canReply) {
     return
   }
   replying.value = true
@@ -592,6 +596,32 @@ async function onReply() {
   } finally {
     replying.value = false
   }
+}
+
+function onReject() {
+  if (!activity.value || replying.value || rejecting.value || !activity.value.canReply) {
+    return
+  }
+  uni.showModal({
+    title: '驳回活动',
+    content: '驳回后活动结束，并发活动取消通知给发起人',
+    confirmText: '驳回',
+    success: async (res) => {
+      if (!res.confirm || !activity.value) {
+        return
+      }
+      rejecting.value = true
+      try {
+        activity.value = await rejectActivity(activity.value.id)
+        replyNote.value = ''
+        uni.showToast({ title: '已驳回', icon: 'success' })
+      } catch (error) {
+        uni.showToast({ title: error instanceof Error ? error.message : '驳回失败', icon: 'none' })
+      } finally {
+        rejecting.value = false
+      }
+    },
+  })
 }
 
 function startEdit() {
@@ -685,24 +715,17 @@ async function onJoin() {
   }
 }
 
-/** 参加时请求「活动撤回」订阅授权。用户允许后，活动被撤回时才能收到微信服务通知。 */
-function requestCancelSubscribe() {
-  if (!CANCEL_TEMPLATE_ID) {
-    return
-  }
-  uni.requestSubscribeMessage({
-    tmplIds: [CANCEL_TEMPLATE_ID],
-    fail: () => {},
-  })
-}
-
-/** 发起人授权「退出社团通知」后，才有人退出时能收到服务通知。 */
+/** 发起人授权后，退出通知和活动取消（含管理员驳回）才能推到。 */
 function requestOwnerLeaveSubscribe(current: Activity) {
-  if (!LEAVE_TEMPLATE_ID || !current.owner) {
+  if (!current.owner) {
+    return
+  }
+  const tmplIds = [LEAVE_TEMPLATE_ID, CANCEL_TEMPLATE_ID].filter((id) => Boolean(id))
+  if (!tmplIds.length) {
     return
   }
   uni.requestSubscribeMessage({
-    tmplIds: [LEAVE_TEMPLATE_ID],
+    tmplIds,
     fail: () => {},
   })
 }
@@ -1293,7 +1316,8 @@ onShareAppMessage(() => {
 .text-action::after,
 .save-action::after,
 .complete-action::after,
-.withdraw-action::after {
+.withdraw-action::after,
+.reject-action::after {
   border: none;
 }
 
@@ -1305,6 +1329,18 @@ onShareAppMessage(() => {
   color: #fff;
   font-size: 15px;
   margin: 12px 0 0;
+}
+
+.reject-action {
+  height: 44px;
+  line-height: 44px;
+  margin: 10px 0 0;
+  border-radius: 12px;
+  background: #fff;
+  color: #b0654a;
+  border: 1px solid #e7cfc6;
+  font-size: 15px;
+  font-weight: 600;
 }
 
 /* 卡片内操作仅保留文字，不再形成横向色块。 */
