@@ -62,7 +62,7 @@
               <view class="dish-body">
                 <text class="dish-name">{{ card.dishTitle }}</text>
                 <text class="dish-desc">{{ card.dishDesc }}</text>
-                <text class="dish-times">{{ card.orderText }}</text>
+                <text v-if="card.orderText" class="dish-times">{{ card.orderText }}</text>
               </view>
               <view
                 :id="'plus-' + card.id"
@@ -192,7 +192,7 @@
         <view v-else class="detail-cover detail-cover-empty">暂无图片</view>
         <text class="sheet-title detail-title">{{ detailView.dishTitle }}</text>
         <text class="detail-desc">{{ detailView.dishDesc }}</text>
-        <text class="detail-times">{{ detailView.orderText }}</text>
+        <text v-if="detailView.orderText" class="detail-times">{{ detailView.orderText }}</text>
         <view v-if="detailView.optionGroups.length" class="option-block detail-options">
           <view v-for="group in detailView.optionGroups" :key="group.id" class="option-group">
             <text class="option-label">{{ group.groupName }}（可选）</text>
@@ -548,8 +548,10 @@ const dishCards = computed(() => {
 })
 
 function orderText(count?: number) {
-  const times = count && count > 0 ? count : 0
-  return `点过 ${times} 次`
+  if (!count || count <= 0) {
+    return ''
+  }
+  return `点过 ${count} 次`
 }
 
 function ensureOptionPicks(dish: Dish) {
@@ -1254,6 +1256,7 @@ onShow(() => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  background: #f6f4f0;
 }
 
 .menu-wrap {
@@ -1323,9 +1326,9 @@ onShow(() => {
 .dish-pane {
   flex: 1;
   min-width: 0;
-  padding: 0 4px 8px;
+  padding: 0 10px 12px;
   box-sizing: border-box;
-  background: #fff;
+  background: #f6f4f0;
 }
 
 .dish-pane.roomy {
@@ -1335,15 +1338,15 @@ onShow(() => {
 .dish-card {
   position: relative;
   background: #fff;
-  border: none;
-  border-radius: 0;
-  margin-bottom: 0;
-  overflow: visible;
+  border: 1px solid #efeae2;
+  border-radius: 14px;
+  margin-bottom: 10px;
+  overflow: hidden;
 }
 
 .dish-card.added {
   border-color: #5b8f7a;
-  background: #f3f8f5;
+  background: #f7fbf8;
 }
 
 .dish-row {
@@ -1361,8 +1364,9 @@ onShow(() => {
 }
 
 .option-block {
-  padding: 0 10px 10px;
-  border-top: 1px solid #efeae2;
+  margin: 0 10px 10px;
+  padding: 2px 2px 0;
+  background: transparent;
 }
 
 .option-group + .option-group {
@@ -1371,7 +1375,6 @@ onShow(() => {
 
 .option-label {
   display: block;
-  margin-top: 8px;
   margin-bottom: 6px;
   color: #5c5852;
   font-size: 12px;
@@ -1447,7 +1450,7 @@ onShow(() => {
 
 .dish-card.selected {
   border-color: #5b8f7a;
-  box-shadow: 0 0 0 3px rgba(91, 143, 122, 0.12);
+  box-shadow: 0 0 0 2px rgba(91, 143, 122, 0.16);
 }
 
 .cover-wrap {
@@ -1673,9 +1676,9 @@ onShow(() => {
 }
 
 .detail-options {
-  margin-top: 12px;
+  margin: 12px 0 0;
   padding: 0;
-  border-top: none;
+  background: transparent;
 }
 
 .detail-action {

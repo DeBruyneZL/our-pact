@@ -64,7 +64,7 @@
 
 <script setup lang="ts">
 import { onReachBottom, onShow } from '@dcloudio/uni-app'
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { activityStatusLabel, type Activity, type ActivityStatus } from '@our-pact/shared'
 import { createActivity, hasOwnOpenActivity, OWN_OPEN_ACTIVITY_MESSAGE, pageManageActivities, pageMyActivities } from '@/api/activity'
 import BrandNav from '@/components/BrandNav.vue'
@@ -389,9 +389,15 @@ async function onCreate() {
   }
 }
 
+watch(showCreate, (open) => {
+  setTabBarHidden(open)
+})
+
 onShow(() => {
   syncTabBar(1)
-  setTabBarHidden(false)
+  const applyTab = () => setTabBarHidden(showCreate.value)
+  applyTab()
+  setTimeout(applyTab, 250)
   if (!activityDate.value || activityDate.value < todayText()) {
     activityDate.value = todayText()
   }
