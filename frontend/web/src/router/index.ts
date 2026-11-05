@@ -5,6 +5,7 @@ import LoginView from '@/views/LoginView.vue'
 import DishesView from '@/views/dishes/DishesView.vue'
 import ShopView from '@/views/shop/ShopView.vue'
 import ActivitiesView from '@/views/activities/ActivitiesView.vue'
+import ActivityDetailView from '@/views/activities/ActivityDetailView.vue'
 import NoticesView from '@/views/notices/NoticesView.vue'
 import UsersView from '@/views/users/UsersView.vue'
 import ProfileView from '@/views/ProfileView.vue'
@@ -24,6 +25,7 @@ const router = createRouter({
         { path: 'shop', name: 'shop', component: ShopView },
         { path: 'dishes', name: 'dishes', component: DishesView },
         { path: 'activities', name: 'activities', component: ActivitiesView },
+        { path: 'activities/:id', name: 'activity-detail', component: ActivityDetailView },
         { path: 'notices', name: 'notices', component: NoticesView },
         { path: 'users', name: 'users', component: UsersView },
         { path: 'schedule-trial', name: 'schedule-trial', component: ScheduleTrialView },

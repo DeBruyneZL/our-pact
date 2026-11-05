@@ -8,7 +8,7 @@
       <nav class="menu">
         <RouterLink :class="{ active: route.name === 'shop' }" :to="{ name: 'shop' }">店铺介绍</RouterLink>
         <RouterLink :class="{ active: route.name === 'dishes' }" :to="{ name: 'dishes' }">菜单维护</RouterLink>
-        <RouterLink :class="{ active: route.name === 'activities' }" :to="{ name: 'activities' }">活动记录</RouterLink>
+        <RouterLink :class="{ active: route.name === 'activities' || route.name === 'activity-detail' }" :to="{ name: 'activities' }">活动记录</RouterLink>
         <RouterLink :class="{ active: route.name === 'notices' }" :to="{ name: 'notices' }">消息记录</RouterLink>
         <RouterLink :class="{ active: route.name === 'users' }" :to="{ name: 'users' }">用户列表</RouterLink>
         <RouterLink :class="{ active: route.name === 'schedule-trial' }" :to="{ name: 'schedule-trial' }">日程试算</RouterLink>

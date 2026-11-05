@@ -12,7 +12,7 @@
     </div>
 
     <div class="filters">
-      <el-radio-group v-model="filterCategoryId" @change="() => undefined">
+      <el-radio-group v-model="filterCategoryId" @change="onCategoryChange">
         <el-radio-button :label="0">全部</el-radio-button>
         <el-radio-button v-for="cat in categories" :key="cat.id" :label="cat.id">
           {{ cat.name }}
@@ -21,7 +21,7 @@
     </div>
 
     <div class="menu-table">
-      <el-table :data="filteredDishes" v-loading="loading" :row-class-name="rowClass">
+      <el-table :data="pagedDishes" v-loading="loading" :row-class-name="rowClass">
         <el-table-column label="菜品" min-width="280">
           <template #default="{ row }">
             <div class="dish-cell">
@@ -73,6 +73,18 @@
           </template>
         </el-table-column>
       </el-table>
+    </div>
+
+    <div class="pager">
+      <el-pagination
+        v-model:current-page="pageNum"
+        v-model:page-size="pageSize"
+        :total="filteredDishes.length"
+        :page-sizes="[10, 20, 50]"
+        layout="total, sizes, prev, pager, next"
+        background
+        @size-change="onSizeChange"
+      />
     </div>
 
     <el-dialog
@@ -210,7 +222,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox, type UploadFile } from 'element-plus'
 import {
   fileFromDataUrl,
@@ -229,6 +241,8 @@ const togglingId = ref<number | null>(null)
 const dialogVisible = ref(false)
 const editing = ref<Dish | null>(null)
 const filterCategoryId = ref(0)
+const pageNum = ref(1)
+const pageSize = ref(10)
 
 function optionSummary(group: DishOptionGroup) {
   return group.values.map((value) => value.label).join(' / ')
@@ -263,6 +277,24 @@ const filteredDishes = computed(() => {
   if (!filterCategoryId.value) return dishes.value
   return dishes.value.filter((dish) => dish.categoryId === filterCategoryId.value)
 })
+
+const pagedDishes = computed(() => {
+  const start = (pageNum.value - 1) * pageSize.value
+  return filteredDishes.value.slice(start, start + pageSize.value)
+})
+
+watch(filteredDishes, (list) => {
+  const maxPage = Math.max(1, Math.ceil(list.length / pageSize.value))
+  if (pageNum.value > maxPage) pageNum.value = maxPage
+})
+
+function onCategoryChange() {
+  pageNum.value = 1
+}
+
+function onSizeChange() {
+  pageNum.value = 1
+}
 
 function categoryName(id: number) {
   return categories.value.find((item) => item.id === id)?.name || '—'
@@ -377,6 +409,7 @@ async function onSave() {
     } else {
       await menuApi.createDish(draft)
       ElMessage.success('菜品已创建')
+      pageNum.value = 1
     }
     dialogVisible.value = false
     await load()
@@ -540,6 +573,12 @@ onMounted(load)
 
 .filters {
   margin-bottom: 16px;
+}
+
+.pager {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 16px;
 }
 
 .dish-form :deep(.el-form-item) {

@@ -11,6 +11,11 @@ export function pageManageActivities(query: ActivityPageQuery): Promise<PageResu
   return http.post<PageResult<Activity>>('/activity/manage/page', query)
 }
 
+/** 活动详情。管理员可以查看任意活动。 */
+export function getActivity(id: number): Promise<Activity> {
+  return http.get<Activity>(`/activity/${id}`)
+}
+
 /** 管理员答复。答复不是审批。 */
 export function replyActivity(id: number, replyNote: string): Promise<Activity> {
   return http.post<Activity>(`/activity/${id}/reply`, { replyNote })

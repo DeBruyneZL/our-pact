@@ -4,6 +4,7 @@ export { pageUsers, updateUserAdmin } from './api/user'
 export type { UserPageQuery } from './api/user'
 export {
   deleteActivity,
+  getActivity,
   listActivityNotices,
   pageManageActivities,
   readActivityNotice,
