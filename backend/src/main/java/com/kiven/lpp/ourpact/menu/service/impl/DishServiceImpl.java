@@ -2,6 +2,9 @@ package com.kiven.lpp.ourpact.menu.service.impl;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.kiven.lpp.ourpact.activity.ActivityStatus;
+import com.kiven.lpp.ourpact.activity.dto.DishOrderCount;
+import com.kiven.lpp.ourpact.activity.mapper.ActivityItemMapper;
 import com.kiven.lpp.ourpact.common.BusinessException;
 import com.kiven.lpp.ourpact.common.YesNo;
 import com.kiven.lpp.ourpact.menu.dto.DishResponse;
@@ -52,16 +55,20 @@ public class DishServiceImpl extends ServiceImpl<DishMapper, Dish> implements Di
 
     private final MenuAccess menuAccess;
 
+    private final ActivityItemMapper activityItemMapper;
+
     public DishServiceImpl(DishCategoryService categoryService,
                            DishOptionGroupService groupService,
                            DishOptionValueService valueService,
                            DishImageStorage imageStorage,
-                           MenuAccess menuAccess) {
+                           MenuAccess menuAccess,
+                           ActivityItemMapper activityItemMapper) {
         this.categoryService = categoryService;
         this.groupService = groupService;
         this.valueService = valueService;
         this.imageStorage = imageStorage;
         this.menuAccess = menuAccess;
+        this.activityItemMapper = activityItemMapper;
     }
 
     @Override
@@ -215,6 +222,7 @@ public class DishServiceImpl extends ServiceImpl<DishMapper, Dish> implements Di
             groupsByDish.computeIfAbsent(group.getDishId(), key -> new ArrayList<>()).add(response);
         }
 
+        Map<Long, Integer> orderCounts = completedOrderCounts(dishIds);
         List<DishResponse> responses = new ArrayList<>();
         for (Dish dish : dishes) {
             DishResponse response = new DishResponse();
@@ -225,6 +233,7 @@ public class DishServiceImpl extends ServiceImpl<DishMapper, Dish> implements Di
             response.setImageUrl(imageStorage.url(dish.getImageName()));
             response.setIsActive(YesNo.YES.getValue().equals(dish.getIsActive()));
             response.setAllowRepeat(YesNo.YES.getValue().equals(dish.getAllowRepeat()));
+            response.setOrderCount(orderCounts.getOrDefault(dish.getId(), 0));
             response.setSortOrder(dish.getSortOrder());
             response.setCreatedAt(dish.getCreateTime());
             response.setUpdatedAt(dish.getUpdateTime());
@@ -232,6 +241,22 @@ public class DishServiceImpl extends ServiceImpl<DishMapper, Dish> implements Di
             responses.add(response);
         }
         return responses;
+    }
+
+    /** 已完成活动才计入。取消、驳回和未完成的活动不算，同一活动里重复点同一道菜也只算一次。 */
+    private Map<Long, Integer> completedOrderCounts(List<Long> dishIds) {
+        List<DishOrderCount> rows = activityItemMapper.countByDishIds(dishIds, ActivityStatus.COMPLETED.getValue());
+        Map<Long, Integer> counts = new HashMap<>();
+        if (rows == null) {
+            return counts;
+        }
+        for (DishOrderCount row : rows) {
+            if (row.getDishId() == null) {
+                continue;
+            }
+            counts.put(row.getDishId(), row.getOrderCount() == null ? 0 : row.getOrderCount());
+        }
+        return counts;
     }
 
     private void replaceOptions(Long dishId, List<OptionGroupRequest> requests) {

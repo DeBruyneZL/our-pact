@@ -10,4 +10,17 @@
         FOR UPDATE
     </select>
 
+    <select id="countByDishIds" resultType="com.kiven.lpp.ourpact.activity.dto.DishOrderCount">
+        SELECT i.dish_id AS dishId, COUNT(DISTINCT i.activity_id) AS orderCount
+        FROM act_item i
+        INNER JOIN act_activity a ON a.id = i.activity_id AND a.deleted = 0
+        WHERE i.deleted = 0
+          AND a.status = #{status}
+          AND i.dish_id IN
+          <foreach collection="dishIds" item="dishId" open="(" separator="," close=")">
+              #{dishId}
+          </foreach>
+        GROUP BY i.dish_id
+    </select>
+
 </mapper>

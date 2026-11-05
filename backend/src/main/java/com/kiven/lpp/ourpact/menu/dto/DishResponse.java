@@ -29,6 +29,9 @@ public class DishResponse {
     /** 活动中可否由同一人或不同人重复添加。 */
     private Boolean allowRepeat;
 
+    /** 已完成活动里被点过的次数。同一活动只计一次，取消和未完成不计。 */
+    private Integer orderCount;
+
     private Integer sortOrder;
 
     private LocalDateTime createdAt;

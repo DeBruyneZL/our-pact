@@ -62,6 +62,7 @@
               <view class="dish-body">
                 <text class="dish-name">{{ card.dishTitle }}</text>
                 <text class="dish-desc">{{ card.dishDesc }}</text>
+                <text class="dish-times">{{ card.orderText }}</text>
               </view>
               <view
                 :id="'plus-' + card.id"
@@ -191,6 +192,7 @@
         <view v-else class="detail-cover detail-cover-empty">暂无图片</view>
         <text class="sheet-title detail-title">{{ detailView.dishTitle }}</text>
         <text class="detail-desc">{{ detailView.dishDesc }}</text>
+        <text class="detail-times">{{ detailView.orderText }}</text>
         <view v-if="detailView.optionGroups.length" class="option-block detail-options">
           <view v-for="group in detailView.optionGroups" :key="group.id" class="option-group">
             <text class="option-label">{{ group.groupName }}（可选）</text>
@@ -506,6 +508,7 @@ const detailView = computed(() => {
     dishId: dish?.id || 0,
     dishTitle: textOr(dish?.name, ''),
     dishDesc: textOr(dish?.description, '家常味道'),
+    orderText: orderText(dish?.orderCount),
     coverSrc,
     showCover: Boolean(coverSrc),
     optionGroups: usableOptionGroups(dish),
@@ -533,6 +536,7 @@ const dishCards = computed(() => {
       id: dish.id,
       dishTitle: textOr(dish.name, '未命名菜品'),
       dishDesc: textOr(dish.description, '家常味道'),
+      orderText: orderText(dish.orderCount),
       coverSrc,
       showCover: Boolean(coverSrc),
       plusDone: done,
@@ -542,6 +546,11 @@ const dishCards = computed(() => {
     }
   })
 })
+
+function orderText(count?: number) {
+  const times = count && count > 0 ? count : 0
+  return `点过 ${times} 次`
+}
 
 function ensureOptionPicks(dish: Dish) {
   if (optionPicks[dish.id]) {
@@ -1488,6 +1497,14 @@ onShow(() => {
   line-height: 1.45;
 }
 
+.dish-times {
+  display: block;
+  margin-top: 4px;
+  color: #8a6a3b;
+  font-size: 12px;
+  line-height: 1.3;
+}
+
 .note-placeholder {
   color: #b3ada2;
 }
@@ -1645,6 +1662,14 @@ onShow(() => {
   color: #5c5852;
   font-size: 14px;
   line-height: 1.6;
+}
+
+.detail-times {
+  display: block;
+  margin-top: 6px;
+  color: #8a6a3b;
+  font-size: 13px;
+  line-height: 1.4;
 }
 
 .detail-options {

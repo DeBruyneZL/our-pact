@@ -30,6 +30,8 @@ export interface Dish {
   isActive: boolean
   /** 活动里可以重复点，并挂在点单人下面。 */
   allowRepeat?: boolean
+  /** 已完成活动里被点过的次数。同一活动只计一次。 */
+  orderCount?: number
   sortOrder: number
   createdAt?: string
   updatedAt?: string
