@@ -1,10 +1,7 @@
 <template>
   <section>
     <div class="head">
-      <div>
-        <h2>店铺介绍</h2>
-        <p>显示在小程序点菜页顶部。地点、主厨和氛围图没填时，这一块不会出现。</p>
-      </div>
+      <h2>店铺介绍</h2>
       <el-button type="primary" :loading="saving" @click="onSave">保存</el-button>
     </div>
 
@@ -238,7 +235,7 @@ onMounted(() => {
 <style scoped>
 .head {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 16px;
   margin-bottom: 20px;
@@ -247,12 +244,6 @@ onMounted(() => {
 .head h2 {
   margin: 0;
   font-size: 26px;
-}
-
-.head p {
-  margin: 6px 0 0;
-  color: #8a8680;
-  font-size: 13px;
 }
 
 .layout {

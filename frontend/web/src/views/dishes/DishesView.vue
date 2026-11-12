@@ -1,23 +1,41 @@
 <template>
   <section>
     <div class="head">
-      <div>
-        <h2>菜单维护</h2>
-        <p>管理分类与菜品，小程序按这里的分类展示。</p>
-      </div>
-      <div class="head-actions">
-        <el-button @click="openCategoryDialog">分类管理</el-button>
-        <el-button type="primary" @click="openCreate">新建菜品</el-button>
-      </div>
+      <h2>菜单维护</h2>
     </div>
 
-    <div class="filters">
-      <el-radio-group v-model="filterCategoryId" @change="onCategoryChange">
-        <el-radio-button :label="0">全部</el-radio-button>
-        <el-radio-button v-for="cat in categories" :key="cat.id" :label="cat.id">
+    <div class="toolbar">
+      <div class="cats" role="tablist">
+        <button
+          type="button"
+          class="cat-tab"
+          role="tab"
+          :aria-selected="filterCategoryId === 0"
+          :class="{ on: filterCategoryId === 0 }"
+          @click="selectCategory(0)"
+        >
+          全部
+        </button>
+        <button
+          v-for="cat in categories"
+          :key="cat.id"
+          type="button"
+          class="cat-tab"
+          role="tab"
+          :aria-selected="filterCategoryId === cat.id"
+          :class="{ on: filterCategoryId === cat.id }"
+          @click="selectCategory(cat.id)"
+        >
           {{ cat.name }}
-        </el-radio-button>
-      </el-radio-group>
+        </button>
+      </div>
+      <div class="toolbar-actions">
+        <button class="bar-btn" type="button" @click="openCategoryDialog">分类管理</button>
+        <button class="bar-btn primary" type="button" @click="openCreate">
+          <span class="plus" aria-hidden="true">+</span>
+          新建菜品
+        </button>
+      </div>
     </div>
 
     <div class="menu-table">
@@ -288,7 +306,9 @@ watch(filteredDishes, (list) => {
   if (pageNum.value > maxPage) pageNum.value = maxPage
 })
 
-function onCategoryChange() {
+function selectCategory(id: number) {
+  if (filterCategoryId.value === id) return
+  filterCategoryId.value = id
   pageNum.value = 1
 }
 
@@ -547,16 +567,7 @@ onMounted(load)
 
 <style scoped>
 .head {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 16px;
-  margin-bottom: 20px;
-}
-
-.head-actions {
-  display: flex;
-  gap: 8px;
+  margin-bottom: 16px;
 }
 
 .head h2 {
@@ -564,15 +575,117 @@ onMounted(load)
   font-size: 26px;
 }
 
-.head p,
 .muted {
   margin: 6px 0 0;
   color: #8a8680;
   font-size: 13px;
 }
 
-.filters {
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
   margin-bottom: 16px;
+}
+
+.cats {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  padding: 4px;
+  border: 1px solid #e6e1d8;
+  border-radius: 18px;
+  background: rgba(255, 252, 247, 0.86);
+}
+
+.cat-tab {
+  height: 28px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #6f6a62;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.cat-tab:hover {
+  background: rgba(91, 143, 122, 0.1);
+  color: #3d6f5c;
+}
+
+.cat-tab.on {
+  background: #5b8f7a;
+  color: #fff;
+}
+
+.cat-tab.on:hover {
+  background: #3d6f5c;
+  color: #fff;
+}
+
+.toolbar-actions {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 8px;
+}
+
+.bar-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 32px;
+  padding: 0 14px;
+  border: 1px solid #cfe0d7;
+  border-radius: 999px;
+  background: #fffcf7;
+  color: #3d6f5c;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.bar-btn:hover {
+  border-color: #5b8f7a;
+  background: #eef6f2;
+}
+
+.bar-btn.primary {
+  border-color: #5b8f7a;
+  background: #5b8f7a;
+  color: #fff;
+  box-shadow: 0 6px 14px rgba(61, 111, 92, 0.18);
+}
+
+.bar-btn.primary:hover {
+  border-color: #3d6f5c;
+  background: #3d6f5c;
+}
+
+.plus {
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1;
+}
+
+@media (max-width: 860px) {
+  .toolbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .toolbar-actions {
+    align-self: flex-end;
+  }
 }
 
 .pager {

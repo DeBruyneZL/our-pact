@@ -552,6 +552,9 @@ public class ActivityServiceImpl implements ActivityService {
     public void delete(Long id) {
         requireAdmin();
         Activity activity = requireActivity(id);
+        if (ActivityStatus.COMPLETED.getValue().equals(activity.getStatus())) {
+            throw new BusinessException("已完成的活动不能删除");
+        }
         List<ActivityItem> items = itemService.list(Wrappers.<ActivityItem>lambdaQuery()
                 .eq(ActivityItem::getActivityId, id));
         if (!items.isEmpty()) {

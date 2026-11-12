@@ -1,10 +1,7 @@
 <template>
   <section>
     <div class="head">
-      <div>
-        <h2>活动记录</h2>
-        <p>确认不是审批，不挡住分享和加菜。确认之后不能再改名称、时间、地点。待确认的活动可以驳回，驳回后活动结束，并用活动取消通知告诉发起人。</p>
-      </div>
+      <h2>活动记录</h2>
     </div>
 
     <div class="filters">
@@ -68,7 +65,7 @@
           <el-button link type="primary" @click="openDetail(row)">详情</el-button>
           <el-button v-if="row.status === 'open'" link type="primary" @click="onReply(row)">答复</el-button>
           <el-button v-if="row.status === 'open'" link type="danger" @click="onReject(row)">驳回</el-button>
-          <el-button link type="danger" @click="onDelete(row)">删除</el-button>
+          <el-button v-if="row.status !== 'completed'" link type="danger" @click="onDelete(row)">删除</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -229,7 +226,6 @@ onMounted(load)
   font-size: 26px;
 }
 
-.head p,
 .muted {
   margin: 6px 0 0;
   color: #8a8680;

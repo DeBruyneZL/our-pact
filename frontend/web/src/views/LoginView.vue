@@ -83,55 +83,96 @@ async function onSubmit() {
 
 <style scoped>
 .login-page {
+  position: relative;
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
-  flex-direction: column;
   align-items: center;
-  padding: 24px 24px 16px;
+  justify-content: center;
+  padding: 48px 24px 72px;
   background:
-    radial-gradient(circle at 20% 15%, rgba(91, 143, 122, 0.16), transparent 42%),
-    linear-gradient(160deg, #f7f5f0, #efeae2);
+    linear-gradient(180deg, rgba(255, 250, 242, 0.12), rgba(44, 42, 38, 0.16)),
+    url('/login-bg.jpg') center / cover no-repeat;
 }
 
 .panel {
-  width: min(420px, 100%);
-  margin: auto;
-  padding: 36px 32px 40px;
-  border: 1px solid var(--line);
-  border-radius: 20px;
-  background: rgba(255, 252, 247, 0.96);
-  box-shadow: 0 16px 36px rgba(44, 42, 38, 0.06);
+  position: relative;
+  z-index: 1;
+  width: min(400px, 100%);
+  padding: 36px 32px 32px;
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  border-radius: 24px;
+  background: rgba(255, 252, 247, 0.84);
+  box-shadow: 0 24px 60px rgba(44, 42, 38, 0.16);
+  backdrop-filter: blur(16px);
 }
 
 .hero {
   display: flex;
   justify-content: center;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
 .desc {
-  margin: 0 0 22px;
-  color: var(--muted);
+  margin: 0 0 24px;
+  color: #5c5852;
   line-height: 1.6;
   text-align: center;
-  font-size: 14px;
+  font-size: 15px;
+}
+
+.panel :deep(.el-form-item) {
+  margin-bottom: 18px;
+}
+
+.panel :deep(.el-form-item__label) {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.panel :deep(.el-input__wrapper) {
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.88);
 }
 
 .submit {
   width: 100%;
-  margin-top: 6px;
+  height: 44px;
+  margin-top: 4px;
+  border-radius: 12px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
 }
 
 .icp {
-  flex-shrink: 0;
-  margin-top: 16px;
-  color: var(--muted);
+  position: absolute;
+  left: 50%;
+  bottom: 18px;
+  z-index: 1;
+  padding: 4px 12px;
+  border-radius: 999px;
+  transform: translateX(-50%);
+  color: rgba(44, 42, 38, 0.72);
+  background: rgba(255, 252, 247, 0.55);
   font-size: 12px;
   line-height: 1.6;
   text-decoration: none;
+  white-space: nowrap;
+  backdrop-filter: blur(8px);
 }
 
 .icp:hover {
-  text-decoration: underline;
+  color: var(--ink);
+}
+
+@media (max-width: 640px) {
+  .login-page {
+    padding: 24px 16px 64px;
+    background-position: 62% center;
+  }
+
+  .panel {
+    padding: 28px 20px 24px;
+  }
 }
 </style>

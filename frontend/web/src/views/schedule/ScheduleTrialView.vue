@@ -1,10 +1,7 @@
 <template>
   <section>
     <div class="head">
-      <div>
-        <h2>日程试算</h2>
-        <p>导入两人排班表，试算共同休息日与可约晚饭日。结果仅本次展示，不保存。</p>
-      </div>
+      <h2>日程试算</h2>
       <div class="head-actions">
         <el-button :disabled="!trial" @click="onClear">清空</el-button>
         <el-button type="primary" :disabled="!trial" @click="onExport">导出结果</el-button>
@@ -278,21 +275,15 @@ function onExport() {
 <style scoped>
 .head {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 16px;
   margin-bottom: 20px;
 }
 
 .head h2 {
-  margin: 0 0 6px;
-  font-size: 22px;
-}
-
-.head p {
   margin: 0;
-  color: var(--muted, #8a8680);
-  font-size: 13px;
+  font-size: 22px;
 }
 
 .head-actions {

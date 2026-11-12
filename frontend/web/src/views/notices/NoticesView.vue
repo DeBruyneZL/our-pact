@@ -1,10 +1,7 @@
 <template>
   <section>
     <div class="head">
-      <div>
-        <h2>消息记录</h2>
-        <p>活动取消等通知。标成已读后仍保留在这里。</p>
-      </div>
+      <h2>消息记录</h2>
     </div>
 
     <el-table :data="notices" v-loading="loading" stripe>
@@ -70,7 +67,6 @@ onMounted(load)
   font-size: 26px;
 }
 
-.head p,
 .muted {
   margin: 6px 0 0;
   color: #8a8680;

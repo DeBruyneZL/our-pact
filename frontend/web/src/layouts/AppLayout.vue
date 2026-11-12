@@ -90,18 +90,19 @@ async function onLogout() {
 .sidebar {
   display: flex;
   flex-direction: column;
-  padding: 24px 12px;
   background: #e7f0eb;
   border-right: 1px solid #d3e2da;
   color: var(--ink);
 }
 
 .brand {
-  padding: 8px 12px 20px;
+  padding: 22px 20px 16px;
+  border-bottom: 1px solid #c5d9cf;
+  background: #f7fbf8;
 }
 
 .sub {
-  margin: 8px 0 0;
+  margin: 6px 0 0;
   color: var(--brand);
   font-size: 12px;
   font-weight: 700;
@@ -111,6 +112,7 @@ async function onLogout() {
 .menu {
   display: grid;
   gap: 4px;
+  padding: 12px;
 }
 
 .menu a {
@@ -137,8 +139,8 @@ async function onLogout() {
 
 .sidebar-foot {
   margin-top: auto;
-  padding-top: 12px;
-  border-top: 1px solid #d3e2da;
+  padding: 12px;
+  border-top: 1px solid #c5d9cf;
 }
 
 .sidebar-foot :deep(.el-dropdown) {

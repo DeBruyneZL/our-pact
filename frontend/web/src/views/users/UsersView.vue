@@ -1,10 +1,7 @@
 <template>
   <section>
     <div class="head">
-      <div>
-        <h2>用户列表</h2>
-        <p>登录用户，包含账号注册和小程序静默登录。</p>
-      </div>
+      <h2>用户列表</h2>
     </div>
 
     <div class="toolbar">
@@ -145,11 +142,6 @@ onMounted(load)
 .head h2 {
   margin: 0;
   font-size: 26px;
-}
-
-.head p {
-  margin: 6px 0 0;
-  color: #8a8680;
 }
 
 .toolbar {

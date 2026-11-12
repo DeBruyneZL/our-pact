@@ -1,22 +1,24 @@
 <template>
-  <section v-loading="loading">
+  <section v-loading="loading" class="detail">
     <button class="back" type="button" @click="back">返回活动记录</button>
 
     <div v-if="errorMessage" class="empty">{{ errorMessage }}</div>
 
     <template v-else-if="activity">
       <header class="hero">
-        <div class="hero-main">
-          <div class="title-row">
-            <h2>{{ activity.name }}</h2>
-            <el-tag :type="statusType(activity.status)" effect="light">{{ statusLabel(activity.status) }}</el-tag>
+        <div class="hero-top">
+          <div class="hero-main">
+            <div class="title-row">
+              <h2>{{ activity.name }}</h2>
+              <el-tag :type="statusType(activity.status)" effect="light">{{ statusLabel(activity.status) }}</el-tag>
+            </div>
+            <p class="lead">{{ activity.userName }} 发起 · 创建于 {{ formatDateTime(activity.createdAt) }}</p>
           </div>
-          <p class="lead">{{ activity.userName }} 发起 · 创建于 {{ formatDateTime(activity.createdAt) }}</p>
-        </div>
-        <div class="hero-actions">
-          <el-button v-if="activity.status === 'open'" type="primary" @click="onReply">答复</el-button>
-          <el-button v-if="activity.status === 'open'" type="danger" plain @click="onReject">驳回</el-button>
-          <el-button type="danger" plain @click="onDelete">删除</el-button>
+          <div v-if="activity.status !== 'completed'" class="hero-actions">
+            <el-button v-if="activity.status === 'open'" type="primary" @click="onReply">答复</el-button>
+            <el-button v-if="activity.status === 'open'" type="danger" plain @click="onReject">驳回</el-button>
+            <el-button type="danger" plain @click="onDelete">删除</el-button>
+          </div>
         </div>
         <dl class="facts">
           <div v-for="fact in facts" :key="fact.label">
@@ -26,59 +28,66 @@
         </dl>
       </header>
 
-      <div class="sheet">
-        <div id="seats" class="primary">
+      <section class="block">
+        <div class="block-head">
+          <h3>过程</h3>
+        </div>
+        <ol class="rail">
+          <li v-for="mark in marks" :key="mark.label">
+            <strong>{{ mark.label }}</strong>
+            <span v-if="mark.time">{{ formatDateTime(mark.time) }}</span>
+            <p>{{ mark.note }}</p>
+          </li>
+        </ol>
+      </section>
+
+      <section id="seats" class="block">
+        <div class="block-head">
           <h3>这一桌</h3>
-          <p class="section-note">{{ seats.length }} 位参与，合计 {{ activity.totalPeople || seats.length }} 人到场，已点 {{ activity.items.length }} 道菜。</p>
-          <article v-for="seat in seats" :key="seat.id" class="seat">
-            <div class="seat-head">
-              <el-avatar :size="44" :src="seat.avatar || undefined">{{ initial(seat.name) }}</el-avatar>
-              <div class="seat-name">
-                <strong>{{ seat.name }}</strong>
-                <span>{{ seat.owner ? '发起人' : '参与人' }} · 这一方 {{ seat.peopleCount || 1 }} 人</span>
-              </div>
-              <em>{{ seat.items.length }} 道</em>
+          <p>{{ seats.length }} 位参与，合计 {{ activity.totalPeople || seats.length }} 人到场，已点 {{ activity.items.length }} 道菜。</p>
+        </div>
+        <p v-if="!seats.length" class="quiet">还没有参与人</p>
+        <article v-for="seat in seats" :key="seat.id" class="seat">
+          <div class="seat-head">
+            <el-avatar :size="40" :src="seat.avatar || undefined">{{ initial(seat.name) }}</el-avatar>
+            <div class="seat-name">
+              <strong>{{ seat.name }}</strong>
+              <span>{{ seat.owner ? '发起人' : '参与人' }} · 这一方 {{ seat.peopleCount || 1 }} 人</span>
             </div>
-            <p v-if="!seat.items.length" class="quiet">还没有加菜</p>
-            <div v-else class="mini-list">
-              <div v-for="item in seat.items" :key="item.id" class="mini">
-                <el-image
-                  v-if="item.dishImageUrl"
-                  :src="item.dishImageUrl"
-                  :preview-src-list="[item.dishImageUrl]"
-                  fit="cover"
-                  class="mini-cover"
-                  preview-teleported
-                />
-                <div v-else class="mini-cover empty-cover">菜</div>
-                <div class="mini-text">
-                  <strong>{{ item.dishName }}</strong>
-                  <span>{{ itemMeta(item) || '没有特殊项' }}</span>
+            <em>{{ seat.items.length }} 道</em>
+          </div>
+          <p v-if="!seat.items.length" class="quiet">还没有加菜</p>
+          <div v-else class="mini-list">
+            <div v-for="item in seat.items" :key="item.id" class="mini">
+              <el-image
+                v-if="item.dishImageUrl"
+                :src="item.dishImageUrl"
+                :preview-src-list="[item.dishImageUrl]"
+                fit="cover"
+                class="mini-cover"
+                preview-teleported
+              />
+              <div v-else class="mini-cover empty-cover">菜</div>
+              <div class="mini-text">
+                <strong>{{ item.dishName }}</strong>
+                <div v-if="item.options.length || item.note" class="chips">
+                  <span v-for="opt in item.options" :key="opt.id" class="chip">{{ opt.groupName }}：{{ opt.optionLabel }}</span>
+                  <span v-if="item.note" class="chip">{{ item.note }}</span>
                 </div>
               </div>
             </div>
-          </article>
-          <p v-if="!seats.length" class="quiet">还没有参与人</p>
+          </div>
+        </article>
+      </section>
+
+      <section id="photos" class="block">
+        <div class="block-head">
+          <h3>照片</h3>
         </div>
-
-        <aside class="side">
-          <h3>过程</h3>
-          <ol class="rail">
-            <li v-for="mark in marks" :key="mark.label">
-              <strong>{{ mark.label }}</strong>
-              <span v-if="mark.time">{{ formatDateTime(mark.time) }}</span>
-              <p>{{ mark.note }}</p>
-            </li>
-          </ol>
-        </aside>
-      </div>
-
-      <section id="photos" class="photos">
-        <h3>照片</h3>
         <p v-if="!activity.photos.length" class="quiet">
           {{ activity.status === 'completed' ? '完成后还没有人上传照片。' : '活动完成后，参与人可以上传照片。' }}
         </p>
-        <div v-else class="photo-grid">
+        <div v-if="activity.photos.length" class="photo-grid">
           <figure v-for="photo in activity.photos" :key="photo.id">
             <el-image
               v-if="photo.url"
@@ -111,13 +120,12 @@ import {
   rejectActivity,
   replyActivity,
   type Activity,
-  type ActivityItem,
   type ActivityParticipant,
   type ActivityStatus,
 } from '@our-pact/shared'
 
 interface Seat extends ActivityParticipant {
-  items: ActivityItem[]
+  items: Activity['items']
 }
 
 interface Mark {
@@ -142,7 +150,6 @@ const facts = computed(() => {
     { label: '地点', value: current.location || '-' },
     { label: '发起方人数', value: `${current.peopleCount || 1} 人` },
     { label: '到场合计', value: `${current.totalPeople || current.participants.length} 人` },
-    { label: '分享码', value: current.shareCode || '-' },
   ]
 })
 
@@ -216,15 +223,6 @@ function statusType(status: ActivityStatus) {
 
 function initial(name?: string | null) {
   return (name || '用').slice(0, 1)
-}
-
-function itemMeta(item: ActivityItem) {
-  return [
-    ...item.options.map((opt) => `${opt.groupName}：${opt.optionLabel}`),
-    item.note ? `备注：${item.note}` : '',
-  ]
-    .filter(Boolean)
-    .join(' · ')
 }
 
 function photoIndex(url?: string | null) {
@@ -303,7 +301,7 @@ async function onReject() {
 
 async function onDelete() {
   const current = activity.value
-  if (!current) return
+  if (!current || current.status === 'completed') return
   try {
     await ElMessageBox.confirm(`删除活动「${current.name}」？`, '删除活动', { type: 'warning' })
     await deleteActivity(current.id)
@@ -328,11 +326,15 @@ watch(
 </script>
 
 <style scoped>
+.detail {
+  max-width: 1080px;
+}
+
 .back {
   padding: 0;
   border: 0;
   background: transparent;
-  color: #3d6f5c;
+  color: var(--brand-dark);
   font: inherit;
   font-size: 13px;
   font-weight: 600;
@@ -340,68 +342,75 @@ watch(
 }
 
 .empty {
-  margin-top: 24px;
+  margin-top: 16px;
   padding: 48px 16px;
   text-align: center;
-  color: #8a8680;
-  background: #f7f5f0;
+  color: var(--muted);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+}
+
+.hero,
+.seat,
+figure {
+  background: var(--surface);
+  border: 1px solid var(--line);
   border-radius: 16px;
 }
 
 .hero {
   margin-top: 14px;
-  padding: 22px 24px 8px;
-  border: 1px solid #d7e6df;
-  border-radius: 18px;
-  background: linear-gradient(180deg, #e7f3ec 0%, #fffcf7 120px);
+  padding: 22px 24px 18px;
+  border-top: 3px solid var(--brand);
 }
 
+.hero-top,
 .title-row,
-.hero {
+.seat-head,
+.block-head {
   display: flex;
-  flex-wrap: wrap;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 12px 20px;
+  gap: 12px 16px;
+}
+
+.hero-main,
+.seat-name,
+.mini-text {
+  min-width: 0;
 }
 
 .hero-main {
-  min-width: 0;
   flex: 1;
 }
 
 .title-row {
   align-items: center;
+  justify-content: flex-start;
+  flex-wrap: wrap;
 }
 
 .title-row h2,
-.primary,
-.photos {
-  scroll-margin-top: 20px;
-}
-
-.primary h3,
-.side h3,
-.photos h3 {
+.block-head h3 {
   margin: 0;
-  color: #2c2a26;
+  color: var(--ink);
 }
 
 .title-row h2 {
-  font-size: 28px;
-  line-height: 1.25;
+  font-size: 26px;
+  line-height: 1.3;
   overflow-wrap: anywhere;
 }
 
 .lead,
-.section-note,
+.block-head p,
 .quiet,
 .rail span,
 .rail p,
 .seat-name span,
-.mini-text span,
 figcaption span {
-  color: #8a8680;
+  color: var(--muted);
 }
 
 .lead {
@@ -417,66 +426,140 @@ figcaption span {
 
 .facts {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  width: 100%;
-  margin: 18px 0 8px;
-  padding: 0;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 18px 0 0;
+  padding: 16px 0 0;
+  border-top: 1px solid var(--line);
 }
 
 .facts div {
   min-width: 0;
-  padding: 14px 16px 14px 0;
+  padding-right: 16px;
+}
+
+.facts div + div {
+  padding-left: 16px;
+  border-left: 1px solid var(--line);
 }
 
 .facts dt {
-  color: #8a8680;
   font-size: 12px;
 }
 
 .facts dd {
   margin: 6px 0 0;
-  color: #2c2a26;
+  color: var(--ink);
   font-size: 15px;
   font-weight: 600;
   line-height: 1.4;
   overflow-wrap: anywhere;
 }
 
-.sheet {
-  display: grid;
-  grid-template-columns: minmax(0, 1.5fr) minmax(260px, 0.7fr);
-  gap: 28px;
+.block {
   margin-top: 28px;
 }
 
-.section-note {
-  margin: 6px 0 14px;
+.block-head {
+  align-items: baseline;
+  justify-content: flex-start;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.block-head + .quiet {
+  margin-top: 0;
+}
+
+.block-head h3 {
+  font-size: 16px;
+}
+
+.block-head p {
+  margin: 0;
   font-size: 13px;
 }
 
-.seat + .seat {
-  margin-top: 18px;
-  padding-top: 18px;
-  border-top: 1px solid #efeae2;
+#seats,
+#photos {
+  scroll-margin-top: 20px;
 }
 
-.seat-head {
-  display: flex;
-  align-items: center;
-  gap: 12px;
+.rail {
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
 }
 
-.seat-name {
-  min-width: 0;
-  flex: 1;
+.rail li {
+  position: relative;
+  padding: 0 0 20px 22px;
 }
 
+.rail li:last-child {
+  padding-bottom: 0;
+}
+
+.rail li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 5px;
+  width: 10px;
+  height: 10px;
+  box-sizing: border-box;
+  border: 2px solid var(--brand);
+  border-radius: 50%;
+  background: var(--surface);
+}
+
+.rail li:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 15px;
+  bottom: -5px;
+  width: 2px;
+  background: #d7e6df;
+}
+
+.rail strong,
 .seat-name strong,
 .mini-text strong,
 figcaption strong {
   display: block;
+  color: var(--ink);
   overflow-wrap: anywhere;
-  color: #2c2a26;
+}
+
+.rail span,
+.rail p {
+  display: block;
+  margin: 4px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.seat + .seat {
+  margin-top: 12px;
+}
+
+.seat {
+  padding: 14px 16px 16px;
+}
+
+.seat-head {
+  align-items: center;
+}
+
+.seat :deep(.el-avatar) {
+  flex-shrink: 0;
+  background: #e7f3ec;
+  color: var(--brand-dark);
+  font-weight: 700;
+}
+
+.seat-name {
+  flex: 1;
 }
 
 .seat-name span {
@@ -487,34 +570,43 @@ figcaption strong {
 
 .seat-head em {
   flex-shrink: 0;
-  color: #3d6f5c;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: #e7f3ec;
+  color: var(--brand-dark);
   font-style: normal;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
 }
 
 .mini-list {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: 10px;
-  margin-top: 12px;
+  margin-top: 14px;
 }
 
 .mini {
   display: flex;
+  flex: 1 1 240px;
   gap: 10px;
+  max-width: 420px;
   min-width: 0;
   padding: 8px;
   border-radius: 12px;
-  background: #f7f5f0;
+  background: var(--paper);
 }
 
 .mini-cover,
-.mini-cover :deep(.el-image) {
+.mini-cover :deep(.el-image__inner) {
   width: 64px;
   height: 64px;
+}
+
+.mini-cover {
   flex-shrink: 0;
-  border-radius: 8px;
+  border-radius: 10px;
+  overflow: hidden;
 }
 
 .empty-cover {
@@ -527,82 +619,45 @@ figcaption strong {
 }
 
 .mini-text {
-  min-width: 0;
   padding-top: 2px;
 }
 
-.mini-text span {
-  display: block;
-  margin-top: 4px;
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.chip {
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: #fff;
+  color: #6f6a62;
   font-size: 12px;
-  line-height: 1.45;
-}
-
-.rail {
-  margin: 14px 0 0;
-  padding: 0;
-  list-style: none;
-}
-
-.rail li {
-  position: relative;
-  padding: 0 0 18px 16px;
-  border-left: 2px solid #d7e6df;
-}
-
-.rail li:last-child {
-  padding-bottom: 0;
-  border-left-color: transparent;
-}
-
-.rail li::before {
-  content: '';
-  position: absolute;
-  left: -5px;
-  top: 4px;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #5b8f7a;
-}
-
-.rail strong {
-  display: block;
-  color: #2c2a26;
-}
-
-.rail span,
-.rail p {
-  display: block;
-  margin: 4px 0 0;
-  font-size: 13px;
   line-height: 1.5;
-}
-
-.photos {
-  margin-top: 32px;
 }
 
 .photo-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 14px;
-  margin-top: 14px;
+  gap: 12px;
 }
 
 figure {
   margin: 0;
+  overflow: hidden;
 }
 
 .photo-grid :deep(.el-image) {
+  display: block;
   width: 100%;
   height: 160px;
-  border-radius: 12px;
   background: #efeae2;
 }
 
 figcaption {
-  margin-top: 8px;
+  padding: 8px 12px 10px;
 }
 
 figcaption span {
@@ -612,15 +667,29 @@ figcaption span {
 }
 
 .quiet {
-  margin: 8px 0 0;
+  margin: 12px 0 0;
   font-size: 13px;
 }
 
-@media (max-width: 980px) {
-  .facts,
-  .sheet,
-  .mini-list {
-    grid-template-columns: 1fr;
+@media (max-width: 860px) {
+  .mini {
+    max-width: none;
+  }
+
+  .facts {
+    grid-template-columns: 1fr 1fr;
+    gap: 14px 0;
+  }
+
+  .facts div,
+  .facts div + div {
+    padding: 0 12px 0 0;
+    border-left: 0;
+  }
+
+  .hero-top,
+  .block-head {
+    flex-direction: column;
   }
 }
 </style>
