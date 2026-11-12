@@ -24,6 +24,7 @@
         </el-button>
       </el-form>
     </section>
+    <a class="icp" :href="ICP_QUERY_URL" target="_blank" rel="noopener noreferrer">{{ ICP_NUMBER }}</a>
   </main>
 </template>
 
@@ -32,6 +33,7 @@ import { onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import type { FormInstance, FormRules } from 'element-plus'
 import { ElMessage } from 'element-plus'
+import { ICP_NUMBER, ICP_QUERY_URL } from '@our-pact/shared'
 import { useAuthStore } from '@/stores/auth'
 import BrandLogo from '@/components/BrandLogo.vue'
 
@@ -82,9 +84,10 @@ async function onSubmit() {
 <style scoped>
 .login-page {
   min-height: 100vh;
-  display: grid;
-  place-items: center;
-  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 24px 24px 16px;
   background:
     radial-gradient(circle at 20% 15%, rgba(91, 143, 122, 0.16), transparent 42%),
     linear-gradient(160deg, #f7f5f0, #efeae2);
@@ -92,6 +95,7 @@ async function onSubmit() {
 
 .panel {
   width: min(420px, 100%);
+  margin: auto;
   padding: 36px 32px 40px;
   border: 1px solid var(--line);
   border-radius: 20px;
@@ -116,5 +120,18 @@ async function onSubmit() {
 .submit {
   width: 100%;
   margin-top: 6px;
+}
+
+.icp {
+  flex-shrink: 0;
+  margin-top: 16px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+  text-decoration: none;
+}
+
+.icp:hover {
+  text-decoration: underline;
 }
 </style>

@@ -87,6 +87,7 @@
         {{ needProfile ? '完善头像和昵称' : '编辑资料' }}
       </button>
     </template>
+    <text class="beian">{{ ICP_NUMBER }}</text>
     </view>
   </view>
 </template>
@@ -94,7 +95,7 @@
 <script setup lang="ts">
 import { onShow } from '@dcloudio/uni-app'
 import { computed, getCurrentInstance, ref } from 'vue'
-import { NICKNAME_MAX_LENGTH, PHONE_PATTERN } from '@our-pact/shared/pure'
+import { ICP_NUMBER, NICKNAME_MAX_LENGTH, PHONE_PATTERN } from '@our-pact/shared/pure'
 import { updateProfile, uploadAvatar } from '@/api/auth'
 import BrandNav from '@/components/BrandNav.vue'
 import PageLoading from '@/components/PageLoading.vue'
@@ -294,11 +295,25 @@ onShow(() => {
 <style scoped>
 .page {
   min-height: 100vh;
+  display: flex;
+  flex-direction: column;
   box-sizing: border-box;
 }
 
 .body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
   padding: 16px 16px calc(20px + 56px + env(safe-area-inset-bottom));
+}
+
+.beian {
+  margin-top: auto;
+  padding-top: 24px;
+  color: #8a8680;
+  font-size: 12px;
+  line-height: 1.6;
+  text-align: center;
 }
 
 .error {
