@@ -16,6 +16,18 @@ export { pactApi } from './api/pactMock'
 export { fileFromDataUrl, menuApi } from './api/menu'
 export { shopApi } from './api/shop'
 export {
+  addTravelFood,
+  addTravelSpot,
+  deleteTravelFood,
+  deleteTravelSpot,
+  getTravelStats,
+  lightTravelSpot,
+  listTravelSpots,
+  updateTravelSpot,
+  uploadTravelFoodPhoto,
+  uploadTravelSpotPhoto,
+} from './api/travel'
+export {
   AVATAR_MAX_BYTES,
   ICP_NUMBER,
   ICP_QUERY_URL,
@@ -26,6 +38,7 @@ export {
   clearToken,
   consumeHandoffToken,
   activityStatusLabel,
+  travelStatusLabel,
   formatDateTime,
   getToken,
   goLogin,
@@ -52,3 +65,4 @@ export type {
   GuestUser,
   ShopProfile,
 } from './types/pact'
+export type { TravelFood, TravelFoodPayload, TravelSavePayload, TravelSpot, TravelStats, TravelStatus, TravelUpdatePayload } from './types/travel'

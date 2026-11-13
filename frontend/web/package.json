@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@amap/amap-jsapi-loader": "^1.0.1",
     "@our-pact/shared": "workspace:*",
     "element-plus": "^2.9.1",
     "pinia": "^2.3.0",

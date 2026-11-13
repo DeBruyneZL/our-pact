@@ -10,6 +10,7 @@ import NoticesView from '@/views/notices/NoticesView.vue'
 import UsersView from '@/views/users/UsersView.vue'
 import ProfileView from '@/views/ProfileView.vue'
 import ScheduleTrialView from '@/views/schedule/ScheduleTrialView.vue'
+import TravelsView from '@/views/travel/TravelsView.vue'
 import { useAuthStore } from '@/stores/auth'
 
 const router = createRouter({
@@ -26,6 +27,7 @@ const router = createRouter({
         { path: 'dishes', name: 'dishes', component: DishesView },
         { path: 'activities', name: 'activities', component: ActivitiesView },
         { path: 'activities/:id', name: 'activity-detail', component: ActivityDetailView },
+        { path: 'travels', name: 'travels', component: TravelsView },
         { path: 'notices', name: 'notices', component: NoticesView },
         { path: 'users', name: 'users', component: UsersView },
         { path: 'schedule-trial', name: 'schedule-trial', component: ScheduleTrialView },
