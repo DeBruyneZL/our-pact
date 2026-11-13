@@ -35,6 +35,10 @@ services:
     build:
       context: .
       dockerfile: docker/nginx.Dockerfile
+      args:
+        # 高德密钥在项目根目录 .env 里配置，构建 nginx 镜像时注入前端产物
+        VITE_AMAP_KEY: ${VITE_AMAP_KEY:-}
+        VITE_AMAP_SECURITY_CODE: ${VITE_AMAP_SECURITY_CODE:-}
     container_name: our-pact-nginx
     ports:
       - "80:80"

@@ -107,6 +107,8 @@ docker compose up -d --build
 
 数据库口令通过环境变量 `MYSQL_PASSWORD` 传入，不要写进仓库。数据库不在本机时，再通过 `MYSQL_HOST`、`MYSQL_PORT` 覆盖。`.env` 里已有微信配置时，补上 `MYSQL_PASSWORD` 后再执行 `docker compose up -d`。
 
+管理端地图用的高德密钥也在 `.env` 里配：`VITE_AMAP_KEY`、`VITE_AMAP_SECURITY_CODE`。它们在构建 nginx 镜像（前端打包）时注入产物，改了之后需要 `docker compose up -d --build` 重新构建才会生效。
+
 ## 2G 内存服务器注意事项
 
 - MySQL 已限制在 512MB，交换上限 1GB，`innodb_buffer_pool_size=128M`。不要再把缓冲池调大。

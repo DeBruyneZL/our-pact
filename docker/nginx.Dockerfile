@@ -11,6 +11,9 @@ RUN pnpm install --frozen-lockfile --filter @our-pact/web...
 
 COPY frontend/web web
 COPY frontend/shared shared
+# 高德密钥由 docker-compose 从根目录 .env 传入构建参数，Vite 构建时注入前端产物
+ARG VITE_AMAP_KEY
+ARG VITE_AMAP_SECURITY_CODE
 RUN pnpm --filter @our-pact/web build
 
 FROM nginx:alpine
