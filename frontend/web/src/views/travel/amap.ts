@@ -1,8 +1,9 @@
 import AMapLoader from '@amap/amap-jsapi-loader'
 
-// 高德开放平台 Key 与安全密钥。部署时记得在高德控制台把正式域名加进 Key 白名单。
-const KEY = 'ccd12a0b921eaf178a4eb12cf14c5644'
-const SECURITY_JS_CODE = '923672df4c95d53dfe804dd6873b5b57'
+// 高德开放平台 Key 与安全密钥，来自环境变量 VITE_AMAP_KEY / VITE_AMAP_SECURITY_CODE（放 .env.local，不进仓库）。
+// 部署时记得在高德控制台把正式域名加进 Key 白名单。
+const KEY = import.meta.env.VITE_AMAP_KEY
+const SECURITY_JS_CODE = import.meta.env.VITE_AMAP_SECURITY_CODE
 
 /** 2.0 矢量底图，只加载旅行记录需要的服务插件。 */
 const AMAP_PLUGINS = ['AMap.Geocoder', 'AMap.PlaceSearch', 'AMap.DistrictSearch', 'AMap.DistrictLayer']
@@ -167,6 +168,9 @@ let pending: Promise<AMapNamespace> | null = null
 
 /** 懒加载高德 JS API，重复调用拿到的是同一个实例。 */
 export function loadMap(): Promise<AMapNamespace> {
+  if (!KEY || !SECURITY_JS_CODE) {
+    return Promise.reject(new Error('缺少高德密钥，请在 frontend/web/.env.local 配置 VITE_AMAP_KEY 和 VITE_AMAP_SECURITY_CODE'))
+  }
   ensureSecurityConfig()
   if (window.AMap) {
     return Promise.resolve(window.AMap)
